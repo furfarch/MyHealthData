@@ -6,8 +6,8 @@ struct RecordListView: View {
     @Query(sort: \MedicalRecord.updatedAt, order: .reverse) private var records: [MedicalRecord]
 
     @State private var selection: MedicalRecord?
-    @State private var showingNewRecordType = false
     @State private var showingAbout = false
+    @State private var showEditor = false
 
     private static let buildDateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -18,8 +18,11 @@ struct RecordListView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
-                ForEach(records) { record in
-                    NavigationLink(value: record) {
+                // Iterate by index to avoid requiring Identifiable on the model objects
+                ForEach(records.indices, id: \.self) { idx in
+                    let record = records[idx]
+                    // Use destination-based NavigationLink so it works reliably on iPhone
+                    NavigationLink(destination: RecordEditorView(record: record)) {
                         HStack {
                             Image(systemName: record.isPet ? "cat" : "person")
                                 .foregroundStyle(.secondary)
@@ -32,12 +35,16 @@ struct RecordListView: View {
                             }
                         }
                     }
+                    .onTapGesture {
+                        // keep selection in sync for split/detail usage
+                        selection = record
+                    }
                 }
                 .onDelete(perform: deleteRecords)
             }
             .navigationTitle("My Health Data")
             .toolbar {
-                ToolbarItem(placement: .automatic) {
+                ToolbarItem(placement: .navigationBarLeading) {
                     Button {
                         showingAbout = true
                     } label: {
@@ -46,8 +53,18 @@ struct RecordListView: View {
                 }
 
                 ToolbarItem {
-                    Button {
-                        showingNewRecordType = true
+                    Menu {
+                        Button {
+                            addRecord(isPet: false)
+                        } label: {
+                            Label("Human", systemImage: "person")
+                        }
+
+                        Button {
+                            addRecord(isPet: true)
+                        } label: {
+                            Label("Pet", systemImage: "cat")
+                        }
                     } label: {
                         Label("New Record", systemImage: "plus")
                     }
@@ -64,21 +81,6 @@ struct RecordListView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
-        .confirmationDialog("Create New Record", isPresented: $showingNewRecordType, titleVisibility: .visible) {
-            Button {
-                addRecord(isPet: false)
-            } label: {
-                Label("Human", systemImage: "person")
-            }
-
-            Button {
-                addRecord(isPet: true)
-            } label: {
-                Label("Pet", systemImage: "cat")
-            }
-
-            Button("Cancel", role: .cancel) { }
-        }
         .sheet(isPresented: $showingAbout) {
             VStack(spacing: 12) {
                 Image(systemName: "app.fill")
@@ -106,6 +108,15 @@ struct RecordListView: View {
             .frame(minWidth: 300, minHeight: 260)
             .padding()
         }
+        // Present editor as a sheet after creating a new record (helps on compact iPhone)
+        .sheet(isPresented: $showEditor) {
+            if let selection {
+                RecordEditorView(record: selection)
+            } else {
+                Text("No record to edit")
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     private func displayName(for record: MedicalRecord) -> String {
@@ -114,13 +125,16 @@ struct RecordListView: View {
 
     private func addRecord(isPet: Bool) {
         withAnimation {
-            let record = MedicalRecord()
-            record.updatedAt = Date()
-            record.isPet = isPet
-            modelContext.insert(record)
-            selection = record
-        }
-    }
+             let record = MedicalRecord()
+             record.updatedAt = Date()
+             record.isPet = isPet
+             modelContext.insert(record)
+             // Keep the selection so the detail view shows the new record
+             selection = record
+             // Show editor sheet on compact devices
+             showEditor = true
+         }
+     }
 
     private func deleteRecords(offsets: IndexSet) {
         withAnimation {

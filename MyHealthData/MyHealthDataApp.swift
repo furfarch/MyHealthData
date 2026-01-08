@@ -10,8 +10,11 @@ import SwiftData
 
 @main
 struct MyHealthDataApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+        .modelContainer(for: [
             MedicalRecord.self,
             BloodEntry.self,
             DrugEntry.self,
@@ -22,21 +25,7 @@ struct MyHealthDataApp: App {
             MedicalHistoryEntry.self,
             MedicalDocumentEntry.self,
             EmergencyContact.self,
-            WeightEntry.self,
+            WeightEntry.self
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
-
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
-        .modelContainer(sharedModelContainer)
     }
 }
