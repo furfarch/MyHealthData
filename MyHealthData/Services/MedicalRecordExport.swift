@@ -1,7 +1,7 @@
 import Foundation
 
 struct MedicalRecordExport: Codable {
-    var exportVersion: Int = 2
+    var exportVersion: Int = 1
 
     var isPet: Bool
     var personalinformation: PersonalInformation
@@ -29,14 +29,6 @@ struct MedicalRecordExport: Codable {
         var personalHealthInsurance: String
         var personalHealthInsuranceNumber: String
         var personalEmployer: String
-    }
-
-    struct PetInformation: Codable {
-        var personalName: String
-        var personalAnimalID: String
-        var ownerName: String
-        var ownerPhone: String
-        var ownerEmail: String
     }
 
     struct EmergencyContact: Codable {
@@ -96,6 +88,14 @@ struct MedicalRecordExport: Codable {
         var medicaldocumentDate: String
         var medicaldocumentName: String
         var medicaldocumentComment: String
+    }
+
+    struct PetInformation: Codable {
+        var personalName: String
+        var personalAnimalID: String
+        var ownerName: String
+        var ownerPhone: String
+        var ownerEmail: String
     }
 
     struct Weight: Codable {

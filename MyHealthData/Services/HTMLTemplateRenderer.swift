@@ -177,8 +177,7 @@ enum HTMLTemplateRenderer {
   <h2>Riskfactors</h2>
   \(risksTable)
 
-  <h2>Weight</h2>
-  \(weightsTable)
+  \(recordExport.isPet ? "<h2>Weight</h2>\n  \(weightsTable)" : "")
 
   <footer>
     Built: \(buildDate) — by furfarch

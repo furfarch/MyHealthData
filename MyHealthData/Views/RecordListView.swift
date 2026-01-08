@@ -19,7 +19,10 @@ struct RecordListView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
                 } else {
-                    ForEach(records, id: \.createdAt) { record in
+                    let humanRecords = records.filter { !$0.isPet }
+                    let petRecords = records.filter { $0.isPet }
+
+                    ForEach(humanRecords, id: \.createdAt) { record in
                         Button(action: {
                             activeRecord = record
                             startEditing = false
@@ -36,7 +39,26 @@ struct RecordListView: View {
                             }
                         }
                     }
-                    .onDelete(perform: deleteRecords)
+                    .onDelete(perform: deleteHumanRecords)
+
+                    ForEach(petRecords, id: \.createdAt) { record in
+                        Button(action: {
+                            activeRecord = record
+                            startEditing = false
+                            showEditor = true
+                        }) {
+                            HStack {
+                                Image(systemName: record.isPet ? "cat" : "person")
+                                VStack(alignment: .leading) {
+                                    Text(displayName(for: record)).font(.headline)
+                                    Text(record.updatedAt, style: .date)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                    .onDelete(perform: deletePetRecords)
                 }
             }
             .navigationTitle("MyHealthData")
@@ -90,9 +112,17 @@ struct RecordListView: View {
         showEditor = true
     }
 
-    private func deleteRecords(at offsets: IndexSet) {
+    private func deleteHumanRecords(at offsets: IndexSet) {
         for index in offsets {
-            let record = records[index]
+            let record = records.filter { !$0.isPet }[index]
+            modelContext.delete(record)
+        }
+        do { try modelContext.save() } catch { /* intentionally silent */ }
+    }
+
+    private func deletePetRecords(at offsets: IndexSet) {
+        for index in offsets {
+            let record = records.filter { $0.isPet }[index]
             modelContext.delete(record)
         }
         do { try modelContext.save() } catch { /* intentionally silent */ }

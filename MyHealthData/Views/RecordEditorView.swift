@@ -46,6 +46,11 @@ struct RecordEditorView: View {
             RecordEditorSectionPersonal(record: record, onChange: touch)
             RecordEditorSectionEmergency(record: record, onChange: touch)
 
+            // Weight editor is available only for pets; remove entirely for human records.
+            if record.isPet {
+                RecordEditorSectionWeight(modelContext: modelContext, record: record, onChange: touch)
+            }
+
             RecordEditorSectionBlood(modelContext: modelContext, record: record, onChange: touch)
             RecordEditorSectionDrugs(modelContext: modelContext, record: record, onChange: touch)
             RecordEditorSectionVaccinations(modelContext: modelContext, record: record, onChange: touch)
@@ -254,22 +259,26 @@ struct RecordEditorView: View {
         ToolbarItemGroup {
             Button(isEditing ? "Done" : "Edit") {
                 if isEditing {
-                    // Finish editing: update timestamp, ensure the record is in the context, persist, then dismiss.
+                    // Finish editing: update timestamp and persist changes.
                     record.updatedAt = Date()
-                    // Ensure the record is part of the modelContext. Inserting an object that's already
-                    // in the context is a no-op, so this is safe and ensures detached objects get saved.
-                    modelContext.insert(record)
+                    do {
+                        try modelContext.save()
+                    } catch {
+                        // intentionally silent (no logging)
+                    }
+                    // If presented as a sheet, dismiss after saving; otherwise return to view mode.
+                    // Attempt to persist changes (silent on failure) then dismiss/pop the view.
                     do {
                         try modelContext.save()
                     } catch {
                         // intentionally silent (no logging)
                     }
                     dismiss()
-                } else {
-                    // Enter editing mode
-                    isEditing = true
-                }
-            }
+                 } else {
+                     // Enter editing mode
+                     isEditing = true
+                 }
+             }
 
             Menu {
                 Button("Export JSON") { Task { await exportJSON() } }

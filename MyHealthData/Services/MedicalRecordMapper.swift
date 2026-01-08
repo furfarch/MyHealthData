@@ -102,13 +102,14 @@ enum MedicalRecordMapper {
                     medicaldocumentComment: $0.note
                 )
             },
-            weights: record.weights.map {
+            // Only include weights for pets. Humans receive an empty weights array.
+            weights: record.isPet ? record.weights.map {
                 .init(
                     weightDate: $0.date.map { iso8601.string(from: $0) } ?? "",
                     weightKg: $0.weightKg,
                     weightComment: $0.comment
                 )
-            }
+            } : []
         )
     }
 }
