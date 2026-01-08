@@ -6,6 +6,9 @@ final class MedicalRecord {
     var createdAt: Date
     var updatedAt: Date
 
+    // Local stable identifier (avoid using 'id' which conflicts with SwiftData synthesized id)
+    var uuid: String
+
     // Personal Information (human)
     var personalFamilyName: String
     var personalGivenName: String
@@ -17,6 +20,14 @@ final class MedicalRecord {
     var personalHealthInsurance: String
     var personalHealthInsuranceNumber: String
     var personalEmployer: String
+
+    // Pet-related fields
+    var isPet: Bool
+    var personalName: String
+    var personalAnimalID: String
+    var ownerName: String
+    var ownerPhone: String
+    var ownerEmail: String
 
     // Legacy single emergency contact fields (kept for backward compatibility)
     var emergencyName: String
@@ -54,7 +65,12 @@ final class MedicalRecord {
     @Relationship(deleteRule: .cascade, inverse: \EmergencyContact.record)
     var emergencyContacts: [EmergencyContact]
 
+    // CloudKit integration flags (opt-in per-record)
+    var isCloudEnabled: Bool
+    var cloudRecordName: String?
+
     init(
+        uuid: String = UUID().uuidString,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         personalFamilyName: String = "",
@@ -67,6 +83,12 @@ final class MedicalRecord {
         personalHealthInsurance: String = "",
         personalHealthInsuranceNumber: String = "",
         personalEmployer: String = "",
+        isPet: Bool = false,
+        personalName: String = "",
+        personalAnimalID: String = "",
+        ownerName: String = "",
+        ownerPhone: String = "",
+        ownerEmail: String = "",
         emergencyName: String = "",
         emergencyNumber: String = "",
         emergencyEmail: String = "",
@@ -79,8 +101,11 @@ final class MedicalRecord {
         medicalhistory: [MedicalHistoryEntry] = [],
         medicaldocument: [MedicalDocumentEntry] = [],
         weights: [WeightEntry] = [],
-        emergencyContacts: [EmergencyContact] = []
+        emergencyContacts: [EmergencyContact] = [],
+        isCloudEnabled: Bool = false,
+        cloudRecordName: String? = nil
     ) {
+        self.uuid = uuid
         self.createdAt = createdAt
         self.updatedAt = updatedAt
 
@@ -94,6 +119,14 @@ final class MedicalRecord {
         self.personalHealthInsurance = personalHealthInsurance
         self.personalHealthInsuranceNumber = personalHealthInsuranceNumber
         self.personalEmployer = personalEmployer
+
+        // pet fields
+        self.isPet = isPet
+        self.personalName = personalName
+        self.personalAnimalID = personalAnimalID
+        self.ownerName = ownerName
+        self.ownerPhone = ownerPhone
+        self.ownerEmail = ownerEmail
 
         self.emergencyName = emergencyName
         self.emergencyNumber = emergencyNumber
@@ -109,36 +142,8 @@ final class MedicalRecord {
         self.medicaldocument = medicaldocument
         self.weights = weights
         self.emergencyContacts = emergencyContacts
-    }
 
-    // Pet-related accessors (computed) — map to existing persisted fields so no schema change is required.
-    var isPet: Bool {
-        get { personalEmployer == "IS_PET" }
-        set { personalEmployer = newValue ? "IS_PET" : "" }
-    }
-
-    var personalName: String {
-        get { personalNickName }
-        set { personalNickName = newValue }
-    }
-
-    var personalAnimalID: String {
-        get { personalSocialSecurityNumber }
-        set { personalSocialSecurityNumber = newValue }
-    }
-
-    var ownerName: String {
-        get { personalFamilyName }
-        set { personalFamilyName = newValue }
-    }
-
-    var ownerPhone: String {
-        get { personalHealthInsuranceNumber }
-        set { personalHealthInsuranceNumber = newValue }
-    }
-
-    var ownerEmail: String {
-        get { emergencyEmail }
-        set { emergencyEmail = newValue }
+        self.isCloudEnabled = isCloudEnabled
+        self.cloudRecordName = cloudRecordName
     }
 }

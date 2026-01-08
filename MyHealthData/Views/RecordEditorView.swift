@@ -43,13 +43,39 @@ struct RecordEditorView: View {
 
     private var editList: some View {
         List {
+            Section {
+                Toggle(isOn: $record.isCloudEnabled) {
+                    Text("Sync to iCloud")
+                }
+                .onChange(of: record.isCloudEnabled) { newValue in
+                    if newValue {
+                        // Present a small confirmation for human records only
+                        if !record.isPet {
+                            // Minimal disclaimer - user-facing; no logging
+                            Task { @MainActor in
+                                // show an alert by setting exportErrorMessage temporarily
+                                exportErrorMessage = "Enabling iCloud will upload this human medical record to iCloud and may be shared with invitees."
+                                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                                exportErrorMessage = nil
+                            }
+                        }
+                        // Trigger a background upload attempt (best-effort)
+                        Task { @MainActor in
+                            do {
+                                _ = try await CloudKitManager.shared.upload(record: record)
+                                // persist recorded cloudRecordName
+                                record.cloudRecordName = record.cloudRecordName ?? record.id
+                                try? modelContext.save()
+                            } catch {
+                                // silently ignore - UI will not crash
+                            }
+                        }
+                    }
+                }
+            }
+            
             RecordEditorSectionPersonal(record: record, onChange: touch)
             RecordEditorSectionEmergency(record: record, onChange: touch)
-
-            // Weight editor is available only for pets; remove entirely for human records.
-            if record.isPet {
-                RecordEditorSectionWeight(modelContext: modelContext, record: record, onChange: touch)
-            }
 
             RecordEditorSectionBlood(modelContext: modelContext, record: record, onChange: touch)
             RecordEditorSectionDrugs(modelContext: modelContext, record: record, onChange: touch)
