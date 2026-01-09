@@ -71,6 +71,10 @@ final class MedicalRecord {
     var isCloudEnabled: Bool = false
     var cloudRecordName: String? = nil
 
+    /// True once a CloudKit share has been created for this record.
+    /// (We store it locally so the list can show a share icon without network calls.)
+    var isCloudShared: Bool = false
+
     init(
         uuid: String = UUID().uuidString,
         createdAt: Date = Date(),
@@ -105,7 +109,8 @@ final class MedicalRecord {
         weights: [WeightEntry] = [],
         emergencyContacts: [EmergencyContact] = [],
         isCloudEnabled: Bool = false,
-        cloudRecordName: String? = nil
+        cloudRecordName: String? = nil,
+        isCloudShared: Bool = false
     ) {
         self.uuid = uuid
         self.createdAt = createdAt
@@ -147,5 +152,6 @@ final class MedicalRecord {
 
         self.isCloudEnabled = isCloudEnabled
         self.cloudRecordName = cloudRecordName
+        self.isCloudShared = isCloudShared
     }
 }

@@ -5,6 +5,8 @@ import UniformTypeIdentifiers
 struct RecordEditorView: View {
     @Environment(\.modelContext) private var modelContext
 
+    @AppStorage("cloudEnabled") private var cloudEnabled: Bool = false
+
     @Bindable var record: MedicalRecord
 
     @State private var isEditing = false
@@ -14,6 +16,10 @@ struct RecordEditorView: View {
     @State private var exportURL: URL?
 
     @State private var saveErrorMessage: String?
+
+    @State private var cloudErrorMessage: String?
+    @State private var isCloudBusy: Bool = false
+    @State private var showShareSheet: Bool = false
 
     @Environment(\.dismiss) private var dismiss
 
@@ -48,6 +54,8 @@ struct RecordEditorView: View {
 
     private var editList: some View {
         List {
+            // Cloud sync & sharing controls were moved to Settings → iCloud.
+
             RecordEditorSectionPersonal(record: record, onChange: touch)
             RecordEditorSectionEmergency(modelContext: modelContext, record: record, onChange: touch)
 

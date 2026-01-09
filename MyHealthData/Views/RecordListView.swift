@@ -44,17 +44,19 @@ struct RecordListView: View {
             }
             .navigationTitle("MyHealthData")
             .toolbar {
-                ToolbarItemGroup(placement: .topBarLeading) {
+                ToolbarItem(placement: .navigationBarLeading) {
                     Button {
                         showAbout = true
                     } label: {
                         Image(systemName: "info.circle")
                     }
+                }
 
+                ToolbarItem(placement: .navigationBarLeading) {
                     Button {
                         showSettings = true
                     } label: {
-                        Image(systemName: "gear")
+                        Image(systemName: "gearshape")
                     }
                 }
 
