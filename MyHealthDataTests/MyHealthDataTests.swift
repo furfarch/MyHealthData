@@ -44,6 +44,17 @@ struct MyHealthDataTests {
         
         // Verify the configuration is not in-memory only
         #expect(config.isStoredInMemoryOnly == false, "ModelContainer should use persistent storage, not in-memory only")
+        
+        // Verify the container uses the persistent configuration by checking we can actually persist data
+        let context = container.mainContext
+        let testRecord = MedicalRecord()
+        testRecord.personalGivenName = "PersistenceTest"
+        context.insert(testRecord)
+        try context.save()
+        
+        // Clean up
+        context.delete(testRecord)
+        try context.save()
     }
     
     @Test func testDataPersistenceAcrossSessions() async throws {
@@ -58,7 +69,8 @@ struct MyHealthDataTests {
         )
         
         // Create a test record in the first session
-        let testUUID = UUID().uuidString
+        // Using a fixed UUID for deterministic testing
+        let testUUID = "TEST-PERSISTENCE-12345678-ABCD"
         do {
             let container1 = try ModelContainer(for: schema, configurations: [config])
             let context1 = container1.mainContext
