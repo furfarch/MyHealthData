@@ -39,13 +39,13 @@ struct MyHealthDataApp: App {
         do {
             self.modelContainer = try ModelContainer(for: schema, configurations: [localConfig])
         } catch {
-            // Development-friendly fallback: run with an in-memory store if the on-disk store is incompatible.
-            let memoryConfig = ModelConfiguration(
-                schema: schema,
-                isStoredInMemoryOnly: true,
-                cloudKitDatabase: .none
-            )
-            self.modelContainer = try! ModelContainer(for: schema, configurations: [memoryConfig])
+            // If the persistent store cannot be initialized, this is a critical error.
+            // Log the error and crash with a clear message rather than silently falling back
+            // to in-memory storage which would cause data loss.
+            print("❌ CRITICAL ERROR: Failed to initialize persistent ModelContainer")
+            print("Error details: \(error)")
+            print("The app cannot continue without a persistent store.")
+            fatalError("Failed to initialize ModelContainer: \(error)")
         }
     }
 
