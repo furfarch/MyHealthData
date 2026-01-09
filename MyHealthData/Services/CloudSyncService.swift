@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import CloudKit
+import UIKit
 
 /// Manual CloudKit sync layer for per-record opt-in syncing.
 ///
@@ -97,26 +98,43 @@ final class CloudSyncService {
         }
     }
 
+    // MARK: - UICloudSharingController Integration
+
     func makeCloudSharingController(for record: MedicalRecord) async throws -> UICloudSharingController {
         let recordName = record.cloudRecordName ?? record.uuid
         let rootID = CKRecord.ID(recordName: recordName)
         let container = CKContainer(identifier: containerIdentifier)
-        let db = container.privateCloudDatabase
 
         // Ensure record exists in CloudKit
         try await syncIfNeeded(record: record)
 
-        let shareController = UICloudSharingController(
-            share: nil,
-            container: container
-        )
-        shareController.availablePermissions = [.allowReadWrite, .allowPrivate]
-        shareController.delegate = CloudSharingDelegate()
-        shareController.modalPresentationStyle = .formSheet
-        shareController.preferredControlTintColor = .systemBlue
-        shareController.title = "Shared Medical Record"
-        shareController.rootRecord = CKRecord(recordType: medicalRecordType, recordID: rootID)
-        return shareController
+        // Fetch the root record from CloudKit
+        let root = try await database.record(for: rootID)
+        let share = CKShare(rootRecord: root)
+        share[CKShare.SystemFieldKey.title] = "Shared Medical Record" as CKRecordValue
+
+        let modify = CKModifyRecordsOperation(recordsToSave: [root, share], recordIDsToDelete: nil)
+        modify.savePolicy = .changedKeys
+
+        // Save the share to CloudKit
+        try await withCheckedThrowingContinuation { [unowned self] cont in
+            modify.modifyRecordsResultBlock = { result in
+                switch result {
+                case .success:
+                    cont.resume(returning: ())
+                case .failure(let error):
+                    cont.resume(throwing: error)
+                }
+            }
+            self.database.add(modify)
+        }
+
+        let controller = UICloudSharingController(share: share, container: container)
+        controller.availablePermissions = [.allowReadWrite, .allowPrivate]
+        controller.delegate = CloudSharingDelegate()
+        controller.modalPresentationStyle = .formSheet
+        controller.title = "Shared Medical Record"
+        return controller
     }
 
     // MARK: - Mapping
