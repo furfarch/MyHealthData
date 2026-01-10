@@ -31,20 +31,32 @@ class CloudKitMedicalRecordFetcher: ObservableObject {
         let query = CKQuery(recordType: recordType, predicate: NSPredicate(value: true))
         let operation = CKQueryOperation(query: query)
         var fetched: [CKRecord] = []
-        operation.recordFetchedBlock = { record in
-            fetched.append(record)
+        // Serial queue to protect access to `fetched` from concurrent callbacks
+        let fetchQueue = DispatchQueue(label: "com.myhealthdata.cloudkit.fetchQueue")
+        operation.recordMatchedBlock = { matchedID, matchedResult in
+            switch matchedResult {
+            case .success(let record):
+                fetchQueue.sync { fetched.append(record) }
+            case .failure(let recError):
+                // Surface per-record errors to the published error (on main thread)
+                DispatchQueue.main.async { [weak self] in
+                    self?.error = recError
+                }
+            }
         }
-        operation.queryCompletionBlock = { [weak self] _, err in
-            DispatchQueue.main.async {
+
+        operation.queryResultBlock = { result in
+            DispatchQueue.main.async { [weak self] in
                 self?.isLoading = false
-                if let err = err {
-                    self?.error = err
-                } else {
-                    self?.records = fetched
-                    // Automatic import to SwiftData for true sync
+                switch result {
+                case .success(_):
+                    // Assign fetched records and import into SwiftData
+                    self?.records = fetchQueue.sync { fetched }
                     if let context = self?.modelContext {
                         self?.importToSwiftData(context: context)
                     }
+                case .failure(let err):
+                    self?.error = err
                 }
             }
         }
