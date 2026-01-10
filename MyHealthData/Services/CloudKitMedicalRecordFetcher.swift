@@ -1,8 +1,10 @@
 import Foundation
 import CloudKit
 import SwiftData
+import Combine
 
 /// Fetches MedicalRecord records from CloudKit (private database by default).
+@MainActor
 class CloudKitMedicalRecordFetcher: ObservableObject {
     @Published var records: [CKRecord] = []
     @Published var error: Error?
@@ -11,10 +13,16 @@ class CloudKitMedicalRecordFetcher: ObservableObject {
     private let container: CKContainer
     private let database: CKDatabase
     private let recordType = "MedicalRecord"
+    private var modelContext: ModelContext?
 
-    init(containerIdentifier: String = "iCloud.com.furfarch.MyHealthData") {
+    init(containerIdentifier: String = "iCloud.com.furfarch.MyHealthData", modelContext: ModelContext? = nil) {
         self.container = CKContainer(identifier: containerIdentifier)
         self.database = container.privateCloudDatabase
+        self.modelContext = modelContext
+    }
+
+    func setModelContext(_ context: ModelContext) {
+        self.modelContext = context
     }
 
     func fetchAll() {
@@ -23,24 +31,32 @@ class CloudKitMedicalRecordFetcher: ObservableObject {
         let query = CKQuery(recordType: recordType, predicate: NSPredicate(value: true))
         let operation = CKQueryOperation(query: query)
         var fetched: [CKRecord] = []
-        operation.recordFetchedBlock = { record in
-            fetched.append(record)
+        operation.recordMatchedBlock = { recordID, result in
+            switch result {
+            case .success(let record):
+                fetched.append(record)
+            case .failure(let err):
+                print("CloudKit fetch error for recordID \(recordID): \(err)")
+            }
         }
-        operation.queryCompletionBlock = { [weak self] _, err in
+        operation.queryResultBlock = { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
-                if let err = err {
-                    self?.error = err
-                } else {
+                switch result {
+                case .success:
                     self?.records = fetched
+                    // Automatic import to SwiftData for true sync
+                    if let context = self?.modelContext {
+                        self?.importToSwiftData(context: context)
+                    }
+                case .failure(let err):
+                    self?.error = err
                 }
             }
         }
         database.add(operation)
     }
-}
 
-extension CloudKitMedicalRecordFetcher {
     /// Import fetched CKRecords into the local SwiftData store as MedicalRecord objects.
     func importToSwiftData(context: ModelContext) {
         for ckRecord in records {

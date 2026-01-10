@@ -1,10 +1,12 @@
 import SwiftUI
 import SwiftData
+import CloudKit
 
 struct RecordListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \MedicalRecord.updatedAt, order: .reverse) private var records: [MedicalRecord]
 
+    @StateObject private var cloudKitFetcher = CloudKitMedicalRecordFetcher()
     @State private var activeRecord: MedicalRecord? = nil
     @State private var showEditor: Bool = false
     @State private var startEditing: Bool = false
@@ -41,35 +43,25 @@ struct RecordListView: View {
                     }
                     .onDelete(perform: deleteRecords)
                 }
-
-                // CloudKit section
-                Section(header: Text("CloudKit Records")) {
+                // CloudKit section (for debug/status only)
+                Section(header: Text("CloudKit Sync Status")) {
                     if cloudKitFetcher.isLoading {
-                        ProgressView("Loading from iCloud...")
+                        ProgressView("Syncing with iCloud...")
                     } else if let error = cloudKitFetcher.error {
                         Text("CloudKit error: \(error.localizedDescription)")
                             .foregroundStyle(.red)
-                    } else if cloudKitFetcher.records.isEmpty {
-                        Text("No records in iCloud")
-                            .foregroundStyle(.secondary)
                     } else {
-                        ForEach(cloudKitFetcher.records, id: \.recordID) { ckRecord in
-                            VStack(alignment: .leading) {
-                                Text(ckRecord["personalFamilyName"] as? String ?? "(No Name)")
-                                    .font(.headline)
-                                Text("Updated: \(ckRecord["updatedAt"] as? Date ?? Date())")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        Button("Import All to Local Records") {
-                            cloudKitFetcher.importToSwiftData(context: modelContext)
-                        }
+                        Text("CloudKit sync complete.")
+                            .foregroundStyle(.secondary)
                     }
                     Button("Reload from iCloud") {
                         cloudKitFetcher.fetchAll()
                     }
                 }
+            }
+            .onAppear {
+                cloudKitFetcher.setModelContext(modelContext)
+                cloudKitFetcher.fetchAll()
             }
             .navigationTitle("MyHealthData")
             .toolbar {
