@@ -30,20 +30,35 @@ struct RecordListView: View {
                         }) {
                             HStack {
                                 Image(systemName: record.isPet ? "cat" : "person")
+                                    .imageScale(.large)
                                 VStack(alignment: .leading) {
                                     Text(displayName(for: record)).font(.headline)
                                     Text(record.updatedAt, style: .date)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
+                                Spacer()
+                                // Storage icon: iCloud vs local device
+                                Image(systemName: record.isCloudEnabled ? "icloud" : "iphone")
+                                    .foregroundStyle(record.isCloudEnabled ? .blue : .secondary)
+                                    .imageScale(.small)
+                                // Sharing icon when enabled
+                                if record.isSharingEnabled {
+                                    Image(systemName: "person.2.circle")
+                                        .foregroundStyle(.green)
+                                        .imageScale(.small)
+                                }
                             }
                         }
+                        .buttonStyle(.plain) // avoid default button highlight
+                        .listRowBackground(Color.clear)
                     }
                     .onDelete(perform: deleteRecords)
                 }
             }
             .navigationTitle("MyHealthData")
             .toolbar {
+                #if os(iOS) || targetEnvironment(macCatalyst)
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
                         showAbout = true
@@ -60,7 +75,7 @@ struct RecordListView: View {
                     }
                 }
 
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .primaryAction) {
                     Menu {
                         Button {
                             addRecord(isPet: false)
@@ -77,6 +92,42 @@ struct RecordListView: View {
                         Image(systemName: "plus")
                     }
                 }
+                #else
+                // macOS: use automatic placements so toolbar items render in the mac toolbar
+                ToolbarItem(placement: .automatic) {
+                    Button {
+                        showAbout = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                    }
+                }
+
+                ToolbarItem(placement: .automatic) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                }
+
+                ToolbarItem {
+                    Menu {
+                        Button {
+                            addRecord(isPet: false)
+                        } label: {
+                            Label("Human", systemImage: "person")
+                        }
+
+                        Button {
+                            addRecord(isPet: true)
+                        } label: {
+                            Label("Pet", systemImage: "cat")
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+                #endif
             }
             .sheet(item: $activeRecord, onDismiss: { activeRecord = nil }) { record in
                 NavigationStack {

@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct AboutView: View {
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 12) {
@@ -21,7 +23,17 @@ struct AboutView: View {
             }
             .padding()
             .navigationTitle("About")
+            .toolbar {
+                #if os(macOS)
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Close") { dismiss() }
+                }
+                #endif
+            }
         }
+        #if os(macOS)
+        .frame(minWidth: 600, minHeight: 400)
+        #endif
     }
 }
 

@@ -2,6 +2,7 @@ import SwiftUI
 import CloudKit
 
 struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
     @State private var accountStatus: CKAccountStatus?
     @State private var accountStatusError: String?
 
@@ -71,6 +72,13 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showExportSheet) {
                 ActivityViewController(items: exportItems)
+            }
+            .toolbar {
+                #if os(macOS)
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Close") { dismiss() }
+                }
+                #endif
             }
         }
     }

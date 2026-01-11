@@ -51,7 +51,6 @@ final class CloudSyncService {
         let recordName = record.cloudRecordName ?? record.uuid
         let ckID = CKRecord.ID(recordName: recordName)
 
-        // Fetch existing record on server or create a new CKRecord with our deterministic ID
         let ckRecord: CKRecord
         do {
             ckRecord = try await database.record(for: ckID)
