@@ -71,6 +71,18 @@ final class MedicalRecord {
     var isCloudEnabled: Bool = false
     var cloudRecordName: String? = nil
 
+    /// Persisted CloudKit record zone name.
+    /// Keeping this stable prevents bugs where we save a record in one zone and later fetch/share from another.
+    var cloudZoneName: String? = nil
+
+    /// Sync status info (UI/debug)
+    var lastSyncAt: Date? = nil
+    var lastSyncError: String? = nil
+
+    /// Per-record sync logs (chronological).
+    /// This is intentionally plain text so it's resilient across schema tweaks.
+    var syncLogs: [String] = []
+
     /// Per-record sharing toggle.
     /// When true, we try to ensure a CKShare exists for this record.
     var isSharingEnabled: Bool = false
@@ -78,12 +90,6 @@ final class MedicalRecord {
     /// Optional display string for participants (UI-only, best effort).
     /// For now this may remain empty; we'll populate it later when we add participant fetching.
     var shareParticipantsSummary: String = ""
-
-    // Per-record sync metadata (persisted locally)
-    var lastSyncAt: Date? = nil
-    var lastSyncError: String? = nil
-    // Chronological per-record sync/debug log entries (most recent last)
-    var syncLogs: [String] = []
 
     init(
         uuid: String = UUID().uuidString,
@@ -120,11 +126,12 @@ final class MedicalRecord {
         emergencyContacts: [EmergencyContact] = [],
         isCloudEnabled: Bool = false,
         cloudRecordName: String? = nil,
-        isSharingEnabled: Bool = false,
-        shareParticipantsSummary: String = "",
+        cloudZoneName: String? = nil,
         lastSyncAt: Date? = nil,
         lastSyncError: String? = nil,
-        syncLogs: [String] = []
+        syncLogs: [String] = [],
+        isSharingEnabled: Bool = false,
+        shareParticipantsSummary: String = ""
     ) {
         self.uuid = uuid
         self.createdAt = createdAt
@@ -166,11 +173,11 @@ final class MedicalRecord {
 
         self.isCloudEnabled = isCloudEnabled
         self.cloudRecordName = cloudRecordName
-        self.isSharingEnabled = isSharingEnabled
-        self.shareParticipantsSummary = shareParticipantsSummary
-
+        self.cloudZoneName = cloudZoneName
         self.lastSyncAt = lastSyncAt
         self.lastSyncError = lastSyncError
         self.syncLogs = syncLogs
+        self.isSharingEnabled = isSharingEnabled
+        self.shareParticipantsSummary = shareParticipantsSummary
     }
 }

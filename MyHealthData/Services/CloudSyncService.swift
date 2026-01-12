@@ -100,6 +100,32 @@ final class CloudSyncService {
 
     // MARK: - Sharing
 
+    private func isUnknownItem(_ error: Error) -> Bool {
+        guard let ck = error as? CKError else { return false }
+        return ck.code == .unknownItem
+    }
+
+    private func sleepBackoff(attempt: Int) async {
+        let nanos: UInt64 = [250_000_000, 500_000_000, 1_000_000_000, 2_000_000_000][min(attempt, 3)]
+        try? await Task.sleep(nanoseconds: nanos)
+    }
+
+    private func shareRecordID(for rootID: CKRecord.ID) -> CKRecord.ID {
+        CKRecord.ID(recordName: "share_\(rootID.recordName)", zoneID: rootID.zoneID)
+    }
+
+    private func fetchShare(recordID: CKRecord.ID) async throws -> CKShare? {
+        do {
+            let rec = try await database.record(for: recordID)
+            return rec as? CKShare
+        } catch {
+            if let ck = error as? CKError, ck.code == .unknownItem {
+                return nil
+            }
+            throw error
+        }
+    }
+
     func createShare(for record: MedicalRecord) async throws -> CKShare {
         // Ensure record exists in CloudKit and fetch root record
         try await syncIfNeeded(record: record)
@@ -193,32 +219,7 @@ final class CloudSyncService {
             throw enrichCloudKitError(error)
         }
 
-        // The server can take a short moment to make the CKShare queryable. Try to fetch
-        // the saved share via repeated `database.record(for:)` calls with a small retry/backoff.
-        var finalShare: CKShare = savedShare
-        let maxAttempts = 4
-        for attempt in 0..<maxAttempts {
-            do {
-                let fetchedRecord = try await database.record(for: savedShare.recordID)
-                if let fetchedShare = fetchedRecord as? CKShare {
-                    finalShare = fetchedShare
-                    ShareDebugStore.shared.appendLog("makeCloudSharingController: fetched CKShare via database.record(for:) attempt=\(attempt)")
-                    break
-                } else {
-                    ShareDebugStore.shared.appendLog("makeCloudSharingController: database.record(for:) returned non-share record on attempt=\(attempt)")
-                    throw NSError(domain: "CloudSyncService", code: 1002, userInfo: [NSLocalizedDescriptionKey: "Fetched record is not a CKShare"])
-                }
-            } catch {
-                ShareDebugStore.shared.appendLog("makeCloudSharingController: database.record(for:) attempt=\(attempt) failed: \(error)")
-                if attempt < maxAttempts - 1 {
-                    try? await Task.sleep(nanoseconds: 300_000_000)
-                    continue
-                }
-                ShareDebugStore.shared.appendLog("makeCloudSharingController: proceeding with original CKShare as fallback")
-            }
-        }
-
-        let controller = UICloudSharingController(share: finalShare, container: container)
+        let controller = UICloudSharingController(share: savedShare, container: container)
         controller.delegate = delegate
         controller.availablePermissions = [.allowReadWrite, .allowPrivate]
         controller.modalPresentationStyle = .formSheet
