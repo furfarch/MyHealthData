@@ -36,12 +36,6 @@ struct RecordListView: View {
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
-                                
-                                Spacer()
-                                
-                                Image(systemName: record.isCloudEnabled ? (record.isSharingEnabled ? "person.2.circle" : "icloud") : "iphone")
-                                    .foregroundStyle(record.isCloudEnabled ? (record.isSharingEnabled ? .green : .blue) : .secondary)
-                                    .imageScale(.small)
                             }
                         }
                     }
@@ -121,9 +115,17 @@ struct RecordListView: View {
                 }
                 #endif
             }
-            .sheet(item: $activeRecord, onDismiss: { activeRecord = nil }) { record in
+            .sheet(item: $activeRecord, onDismiss: {
+                activeRecord = nil
+                startEditing = false
+            }) { record in
                 NavigationStack {
                     RecordEditorView(record: record, startEditing: startEditing)
+                        .onAppear {
+                            // If we opened because of a newly-created record, clear the flag so subsequent opens
+                            // don’t get stuck in edit mode or race with other state updates.
+                            if startEditing { startEditing = false }
+                        }
                 }
             }
             .sheet(isPresented: $showAbout) { AboutView() }

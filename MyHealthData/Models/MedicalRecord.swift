@@ -71,17 +71,9 @@ final class MedicalRecord {
     var isCloudEnabled: Bool = false
     var cloudRecordName: String? = nil
 
-    /// Persisted CloudKit record zone name.
-    /// Keeping this stable prevents bugs where we save a record in one zone and later fetch/share from another.
-    var cloudZoneName: String? = nil
-
-    /// Sync status info (UI/debug)
-    var lastSyncAt: Date? = nil
-    var lastSyncError: String? = nil
-
-    /// Per-record sync logs (chronological).
-    /// This is intentionally plain text so it's resilient across schema tweaks.
-    var syncLogs: [String] = []
+    /// Persisted recordName of the CKShare that shares this MedicalRecord (best effort).
+    /// Storing this lets us reuse a previously-created share instead of trying to recreate/fetch it in a racy way.
+    var cloudShareRecordName: String? = nil
 
     /// Per-record sharing toggle.
     /// When true, we try to ensure a CKShare exists for this record.
@@ -126,10 +118,7 @@ final class MedicalRecord {
         emergencyContacts: [EmergencyContact] = [],
         isCloudEnabled: Bool = false,
         cloudRecordName: String? = nil,
-        cloudZoneName: String? = nil,
-        lastSyncAt: Date? = nil,
-        lastSyncError: String? = nil,
-        syncLogs: [String] = [],
+        cloudShareRecordName: String? = nil,
         isSharingEnabled: Bool = false,
         shareParticipantsSummary: String = ""
     ) {
@@ -173,10 +162,7 @@ final class MedicalRecord {
 
         self.isCloudEnabled = isCloudEnabled
         self.cloudRecordName = cloudRecordName
-        self.cloudZoneName = cloudZoneName
-        self.lastSyncAt = lastSyncAt
-        self.lastSyncError = lastSyncError
-        self.syncLogs = syncLogs
+        self.cloudShareRecordName = cloudShareRecordName
         self.isSharingEnabled = isSharingEnabled
         self.shareParticipantsSummary = shareParticipantsSummary
     }

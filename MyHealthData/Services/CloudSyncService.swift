@@ -48,13 +48,7 @@ final class CloudSyncService {
                 userInfo: [NSLocalizedDescriptionKey: "iCloud account not available (status: \(status))."]
             )
 
-            // persist and log account status failure on record
-            record.lastSyncAt = nil
-            record.lastSyncError = err.localizedDescription
             ShareDebugStore.shared.appendLog("syncIfNeeded: account not available for record=\(record.uuid) status=\(status)")
-            let ts1 = ISO8601DateFormatter().string(from: Date())
-            record.syncLogs.append("[\(ts1)] account not available: \(status)")
-
             throw err
         }
 
@@ -76,19 +70,9 @@ final class CloudSyncService {
 
             // Persist back CloudKit identity and mark success
             record.cloudRecordName = saved.recordID.recordName
-            record.lastSyncAt = Date()
-            record.lastSyncError = nil
             ShareDebugStore.shared.appendLog("syncIfNeeded: saved id=\(saved.recordID.recordName) type=\(saved.recordType) for local uuid=\(record.uuid)")
-            let ts2 = ISO8601DateFormatter().string(from: Date())
-            record.syncLogs.append("[\(ts2)] saved id=\(saved.recordID.recordName) type=\(saved.recordType)")
         } catch {
-            // mark failure and log
-            record.lastSyncAt = nil
-            record.lastSyncError = String(describing: error)
             ShareDebugStore.shared.appendLog("syncIfNeeded: failed to save record=\(record.uuid) error=\(error)")
-            let ts3 = ISO8601DateFormatter().string(from: Date())
-            record.syncLogs.append("[\(ts3)] save failed: \(error)")
-
             throw enrichCloudKitError(error)
         }
     }
@@ -100,69 +84,69 @@ final class CloudSyncService {
 
     // MARK: - Sharing
 
-    private func isUnknownItem(_ error: Error) -> Bool {
-        guard let ck = error as? CKError else { return false }
-        return ck.code == .unknownItem
-    }
-
-    private func sleepBackoff(attempt: Int) async {
-        let nanos: UInt64 = [250_000_000, 500_000_000, 1_000_000_000, 2_000_000_000][min(attempt, 3)]
-        try? await Task.sleep(nanoseconds: nanos)
-    }
-
-    private func shareRecordID(for rootID: CKRecord.ID) -> CKRecord.ID {
-        CKRecord.ID(recordName: "share_\(rootID.recordName)", zoneID: rootID.zoneID)
-    }
-
-    private func fetchShare(recordID: CKRecord.ID) async throws -> CKShare? {
-        do {
-            let rec = try await database.record(for: recordID)
-            return rec as? CKShare
-        } catch {
-            if let ck = error as? CKError, ck.code == .unknownItem {
-                return nil
-            }
-            throw error
-        }
-    }
-
     func createShare(for record: MedicalRecord) async throws -> CKShare {
-        // Ensure record exists in CloudKit and fetch root record
+        // Ensure record exists in CloudKit
         try await syncIfNeeded(record: record)
 
         let recordName = record.cloudRecordName ?? record.uuid
         let rootID = CKRecord.ID(recordName: recordName)
         let root = try await database.record(for: rootID)
 
-        // Prepare CKShare and set a title
+        // Reuse existing share if we know its record name.
+        if let shareRecordName = record.cloudShareRecordName {
+            let shareID = CKRecord.ID(recordName: shareRecordName)
+            do {
+                if let existing = try await database.record(for: shareID) as? CKShare {
+                    ShareDebugStore.shared.lastShareURL = existing.url
+                    ShareDebugStore.shared.appendLog("createShare: reusing existing share id=\(existing.recordID.recordName) url=\(String(describing: existing.url))")
+                    return existing
+                }
+            } catch {
+                if let ck = error as? CKError, ck.code == .unknownItem {
+                    ShareDebugStore.shared.appendLog("createShare: stored share id not found, recreating. id=\(shareRecordName)")
+                } else {
+                    ShareDebugStore.shared.appendLog("createShare: failed to fetch existing share id=\(shareRecordName): \(error)")
+                }
+                // fall through to recreate
+            }
+        }
+
+        // Create new share
         let share = CKShare(rootRecord: root)
         share[CKShare.SystemFieldKey.title] = "Shared Medical Record" as CKRecordValue
 
         do {
-            // Use the async modifyRecords API which returns a mapping of record ID -> Result<CKRecord, Error>.
-            // Extract successful CKRecord values and find the CKShare among them. This avoids races where
-            // a freshly-saved CKShare isn't yet queryable via record(for:).
             let (savedRecordsByID, _) = try await database.modifyRecords(saving: [root, share], deleting: [])
 
-            // savedRecordsByID: [CKRecord.ID: Result<CKRecord, Error>]
             let savedValues: [CKRecord] = savedRecordsByID.values.compactMap { result in
                 switch result {
                 case .success(let rec): return rec
-                case .failure(_): return nil
+                case .failure(let err):
+                    ShareDebugStore.shared.appendLog("createShare: modifyRecords partial failure: \(err)")
+                    return nil
                 }
             }
 
             if let savedShare = savedValues.compactMap({ $0 as? CKShare }).first {
-                print("[CloudSyncService] Created CKShare id=\(savedShare.recordID.recordName) for record=\(record.uuid) url=\(String(describing: savedShare.url))")
+                record.cloudShareRecordName = savedShare.recordID.recordName
+                ShareDebugStore.shared.lastShareURL = savedShare.url
+                ShareDebugStore.shared.appendLog("createShare: created share id=\(savedShare.recordID.recordName) url=\(String(describing: savedShare.url))")
                 return savedShare
             }
 
             // Fallback: fetch the share by its recordID
             let fetched = try await database.record(for: share.recordID)
-            if let fetchedShare = fetched as? CKShare { return fetchedShare }
+            if let fetchedShare = fetched as? CKShare {
+                record.cloudShareRecordName = fetchedShare.recordID.recordName
+                ShareDebugStore.shared.lastShareURL = fetchedShare.url
+                ShareDebugStore.shared.appendLog("createShare: fetched created share id=\(fetchedShare.recordID.recordName) url=\(String(describing: fetchedShare.url))")
+                return fetchedShare
+            }
 
             throw NSError(domain: "CloudSyncService", code: 5, userInfo: [NSLocalizedDescriptionKey: "Failed to obtain saved CKShare from server."])
         } catch {
+            ShareDebugStore.shared.lastError = error
+            ShareDebugStore.shared.appendLog("createShare: failed: \(error)")
             throw enrichCloudKitError(error)
         }
     }

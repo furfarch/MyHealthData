@@ -50,16 +50,29 @@ struct SettingsView: View {
                     // Always-available export for TestFlight / Release: copies logs and opens share sheet
                     Button(action: {
                         let export = ShareDebugStore.shared.exportText()
-                        // copy to clipboard
+
                         #if canImport(UIKit)
+                        // Copy to clipboard
                         UIPasteboard.general.string = export
+
+                        // Also write to a temporary file and share the file URL (more reliable than sharing a huge String)
+                        let fileURL = FileManager.default.temporaryDirectory
+                            .appendingPathComponent("MyHealthData-ShareLogs-\(Int(Date().timeIntervalSince1970)).txt")
+                        do {
+                            try export.write(to: fileURL, atomically: true, encoding: .utf8)
+                            exportItems = [fileURL]
+                        } catch {
+                            // Fallback to sharing plain text if file write fails
+                            exportItems = [export]
+                        }
                         #elseif canImport(AppKit)
                         let pb = NSPasteboard.general
                         pb.clearContents()
                         pb.setString(export, forType: .string)
-                        #endif
-                        ShareDebugStore.shared.appendLog("User initiated export from Settings")
                         exportItems = [export]
+                        #endif
+
+                        ShareDebugStore.shared.appendLog("User initiated export from Settings")
                         showExportSheet = true
                     }) {
                         Label("Export Share Logs", systemImage: "square.and.arrow.up.on.square")
@@ -72,6 +85,9 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showExportSheet) {
                 ActivityViewController(items: exportItems)
+                    .onAppear {
+                        ShareDebugStore.shared.appendLog("Export sheet presented (items=\(exportItems.count))")
+                    }
             }
             .toolbar {
                 #if os(macOS)

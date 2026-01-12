@@ -1,10 +1,16 @@
-
 import SwiftUI
 import SwiftData
+
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 struct SyncStatusDetailView: View, Identifiable {
     var id: String { record.id }
     var record: MedicalRecord
+
     @ObservedObject private var debug = ShareDebugStore.shared
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -33,20 +39,21 @@ struct SyncStatusDetailView: View, Identifiable {
                     }
                 }
 
-                Section("Last Sync") {
+                Section("Cloud IDs") {
                     HStack {
-                        Text("Last Sync At")
+                        Text("Cloud Record")
                         Spacer()
-                        Text(record.lastSyncAt.map { formatted(date: $0) } ?? "Never")
+                        Text(record.cloudRecordName ?? "—")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
                     }
                     HStack {
-                        Text("Last Sync Error")
+                        Text("Share Record")
                         Spacer()
-                        Text(record.lastSyncError ?? "None")
+                        Text(record.cloudShareRecordName ?? "—")
                             .font(.caption)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(.secondary)
                             .multilineTextAlignment(.trailing)
                     }
                 }
@@ -104,19 +111,7 @@ struct SyncStatusDetailView: View, Identifiable {
     }
 
     private func filteredLogs() -> [String] {
-        // Prefer per-record persisted syncLogs (chronological newest last).
-        if !record.syncLogs.isEmpty {
-            return record.syncLogs
-        }
-        // Fallback: global debug store filtered by record.uuid
-        return debug.logs.filter { $0.contains(record.uuid) }
-    }
-
-    private func formatted(date: Date) -> String {
-        let fmt = DateFormatter()
-        fmt.dateStyle = .medium
-        fmt.timeStyle = .short
-        return fmt.string(from: date)
+        debug.logs.filter { $0.contains(record.uuid) }
     }
 
     private func copyToClipboard(_ text: String) {
