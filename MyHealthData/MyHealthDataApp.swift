@@ -13,6 +13,11 @@ struct MyHealthDataApp: App {
     private let modelContainer: ModelContainer
     @Environment(\.scenePhase) private var scenePhase: ScenePhase
 
+    // Keep a single fetcher instance alive for the app lifetime so its async
+    // query operations won't be deallocated before completion (this was causing
+    // `no modelContext set` and imports being skipped).
+    private let cloudFetcher: CloudKitMedicalRecordFetcher
+
     init() {
         let schema = Schema([
             MedicalRecord.self,
@@ -37,6 +42,9 @@ struct MyHealthDataApp: App {
             cloudKitDatabase: .none
         )
 
+        // Initialize the retained fetcher early so it's available in tasks
+        self.cloudFetcher = CloudKitMedicalRecordFetcher(containerIdentifier: "iCloud.com.furfarch.MyHealthData")
+
         do {
             self.modelContainer = try ModelContainer(for: schema, configurations: [localConfig])
         } catch {
@@ -56,11 +64,9 @@ struct MyHealthDataApp: App {
             ContentView()
                 .task {
                     // On first launch, attempt to pull records from CloudKit into the local store.
-                    // This makes per-record sync appear automatic: when a record is uploaded from
-                    // another device, this device will import it on foreground/launch.
-                    let fetcher = CloudKitMedicalRecordFetcher(containerIdentifier: "iCloud.com.furfarch.MyHealthData")
-                    fetcher.setModelContext(self.modelContainer.mainContext)
-                    fetcher.fetchAll()
+                    // Keep the fetcher retained on self so its async callbacks can import safely.
+                    self.cloudFetcher.setModelContext(self.modelContainer.mainContext)
+                    self.cloudFetcher.fetchAll()
                 }
         }
         .modelContainer(modelContainer)
@@ -68,9 +74,8 @@ struct MyHealthDataApp: App {
             // Use two-argument onChange to satisfy the newer API and avoid deprecation warnings.
             if newPhase == .active {
                 Task { @MainActor in
-                    let fetcher = CloudKitMedicalRecordFetcher(containerIdentifier: "iCloud.com.furfarch.MyHealthData")
-                    fetcher.setModelContext(self.modelContainer.mainContext)
-                    fetcher.fetchAll()
+                    self.cloudFetcher.setModelContext(self.modelContainer.mainContext)
+                    self.cloudFetcher.fetchAll()
                 }
             }
         }

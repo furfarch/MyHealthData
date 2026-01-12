@@ -30,7 +30,6 @@ struct RecordListView: View {
                         }) {
                             HStack {
                                 Image(systemName: record.isPet ? "cat" : "person")
-                                    .imageScale(.large)
                                 VStack(alignment: .leading) {
                                     Text(displayName(for: record)).font(.headline)
                                     Text(record.updatedAt, style: .date)
@@ -38,20 +37,25 @@ struct RecordListView: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                // Storage icon: iCloud vs local device
-                                Image(systemName: record.isCloudEnabled ? "icloud" : "iphone")
-                                    .foregroundStyle(record.isCloudEnabled ? .blue : .secondary)
-                                    .imageScale(.small)
-                                // Sharing icon when enabled
-                                if record.isSharingEnabled {
-                                    Image(systemName: "person.2.circle")
-                                        .foregroundStyle(.green)
-                                        .imageScale(.small)
+
+                                // Minimal cloud sync / sharing status indicators
+                                HStack(spacing: 8) {
+                                    if record.isCloudEnabled {
+                                        Image(systemName: "icloud.fill")
+                                            .foregroundStyle(.blue)
+                                            .imageScale(.small)
+                                            .accessibilityLabel("iCloud sync enabled")
+                                    }
+
+                                    if record.isSharingEnabled {
+                                        Image(systemName: "person.2.fill")
+                                            .foregroundStyle(.green)
+                                            .imageScale(.small)
+                                            .accessibilityLabel("Record is shared")
+                                    }
                                 }
                             }
                         }
-                        .buttonStyle(.plain) // avoid default button highlight
-                        .listRowBackground(Color.clear)
                     }
                     .onDelete(perform: deleteRecords)
                 }
