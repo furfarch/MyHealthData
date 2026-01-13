@@ -128,8 +128,8 @@ final class MedicalRecord {
 
     /// Display name for the record following the pattern: "Family Name - Given Name - Name"
     /// For pets: uses personalName
-    /// For humans: uses family name, given name, and name (nickname) with " - " separator
-    /// If only name (nickname) is available, uses just that
+    /// For humans: displays all non-empty fields in order (family, given, name) separated by " - "
+    /// Examples: "Smith - John - Johnny", "Smith - John", "Johnny", "Person" (when all empty)
     var displayName: String {
         if isPet {
             let name = personalName.trimmingCharacters(in: .whitespacesAndNewlines)
