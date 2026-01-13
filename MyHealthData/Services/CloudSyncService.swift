@@ -418,6 +418,8 @@ final class CloudSyncService {
         controller.availablePermissions = [.allowReadWrite, .allowPrivate]
         controller.modalPresentationStyle = .formSheet
         controller.title = "Shared Medical Record"
+        
+        ShareDebugStore.shared.appendLog("makeCloudSharingController: created UICloudSharingController with share url=\(String(describing: savedShare.url))")
         return controller
     }
 #endif
@@ -564,14 +566,18 @@ class CloudSharingDelegate: NSObject, UICloudSharingControllerDelegate {
     var onComplete: ((Result<URL?, Error>) -> Void)?
 
     func cloudSharingController(_ c: UICloudSharingController, failedToSaveShareWithError error: Error) {
+        ShareDebugStore.shared.appendLog("CloudSharingDelegate: failedToSaveShareWithError: \(error)")
         print("CloudKit sharing failed: \(error)")
         onComplete?(.failure(error))
     }
     func cloudSharingControllerDidSaveShare(_ c: UICloudSharingController) {
-        print("CloudKit share saved: \(String(describing: c.share?.url))")
-        onComplete?(.success(c.share?.url))
+        let url = c.share?.url
+        ShareDebugStore.shared.appendLog("CloudSharingDelegate: didSaveShare url=\(String(describing: url))")
+        print("CloudKit share saved: \(String(describing: url))")
+        onComplete?(.success(url))
     }
     func cloudSharingControllerDidStopSharing(_ c: UICloudSharingController) {
+        ShareDebugStore.shared.appendLog("CloudSharingDelegate: didStopSharing")
         print("CloudKit sharing stopped")
         onComplete?(.success(nil))
     }
