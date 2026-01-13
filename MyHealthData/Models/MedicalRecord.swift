@@ -152,24 +152,9 @@ final class MedicalRecord {
     
     /// Sort key for ordering records
     /// Uses the same pattern as displayName: Family Name, Given Name, Name
+    /// Returns lowercase version of displayName for case-insensitive sorting
     var sortKey: String {
-        if isPet {
-            let name = personalName.trimmingCharacters(in: .whitespacesAndNewlines)
-            return name.isEmpty ? "Pet" : name.lowercased()
-        } else {
-            let family = personalFamilyName.trimmingCharacters(in: .whitespacesAndNewlines)
-            let given = personalGivenName.trimmingCharacters(in: .whitespacesAndNewlines)
-            let name = personalNickName.trimmingCharacters(in: .whitespacesAndNewlines)
-            
-            // Build the sort key with consistent ordering
-            let parts = [family, given, name].filter { !$0.isEmpty }
-            
-            if parts.isEmpty {
-                return "person"
-            }
-            
-            return parts.joined(separator: " ").lowercased()
-        }
+        return displayName.lowercased()
     }
 
     init(
