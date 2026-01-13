@@ -255,50 +255,90 @@ final class CloudSyncService {
         share[CKShare.SystemFieldKey.title] = "Shared Medical Record" as CKRecordValue
 
         do {
-            let (savedRecordsByID, _) = try await database.modifyRecords(saving: [root, share], deleting: [])
-
-            // Debug: log all returned record IDs and their success/failure status
-            ShareDebugStore.shared.appendLog("createShare: modifyRecords returned \(savedRecordsByID.count) results")
-            for (recordID, result) in savedRecordsByID {
-                switch result {
-                case .success(let rec):
-                    let isShare = rec is CKShare
-                    ShareDebugStore.shared.appendLog("createShare: success for recordID=\(recordID.recordName) type=\(rec.recordType) isShare=\(isShare)")
-                case .failure(let err):
-                    ShareDebugStore.shared.appendLog("createShare: failure for recordID=\(recordID.recordName) error=\(err)")
+            // Strategy: Use CKModifyRecordsOperation for better control over the save process
+            // This gives us more reliable callbacks compared to modifyRecords
+            ShareDebugStore.shared.appendLog("createShare: saving root=\(root.recordID.recordName) and share=\(share.recordID.recordName) in zone=\(shareZoneName)")
+            
+            let savedShare: CKShare = try await withCheckedThrowingContinuation { continuation in
+                let operation = CKModifyRecordsOperation(recordsToSave: [root, share], recordIDsToDelete: [])
+                operation.savePolicy = .changedKeys
+                operation.qualityOfService = .userInitiated
+                
+                var savedShareRecord: CKShare?
+                var saveError: Error?
+                
+                // Track individual record saves
+                operation.perRecordSaveBlock = { recordID, result in
+                    switch result {
+                    case .success(let record):
+                        ShareDebugStore.shared.appendLog("createShare: saved record=\(recordID.recordName) type=\(record.recordType)")
+                        if let share = record as? CKShare {
+                            savedShareRecord = share
+                            ShareDebugStore.shared.appendLog("createShare: captured CKShare in perRecordSaveBlock id=\(share.recordID.recordName)")
+                        }
+                    case .failure(let error):
+                        ShareDebugStore.shared.appendLog("createShare: failed to save record=\(recordID.recordName) error=\(error)")
+                        if saveError == nil {
+                            saveError = error
+                        }
+                    }
+                }
+                
+                // Final result callback
+                operation.modifyRecordsResultBlock = { result in
+                    switch result {
+                    case .success:
+                        if let savedShare = savedShareRecord {
+                            ShareDebugStore.shared.appendLog("createShare: operation succeeded with share id=\(savedShare.recordID.recordName) url=\(String(describing: savedShare.url))")
+                            continuation.resume(returning: savedShare)
+                        } else {
+                            ShareDebugStore.shared.appendLog("createShare: operation succeeded but share not captured in callbacks")
+                            // Try to fetch the share as a fallback
+                            Task {
+                                do {
+                                    if let fetchedShare = try await self.database.record(for: share.recordID) as? CKShare {
+                                        ShareDebugStore.shared.appendLog("createShare: fetched share after operation id=\(fetchedShare.recordID.recordName)")
+                                        continuation.resume(returning: fetchedShare)
+                                    } else {
+                                        continuation.resume(throwing: NSError(domain: "CloudSyncService", code: 6, userInfo: [NSLocalizedDescriptionKey: "Share was not captured and fetch returned wrong type"]))
+                                    }
+                                } catch {
+                                    ShareDebugStore.shared.appendLog("createShare: fetch after operation failed: \(error)")
+                                    continuation.resume(throwing: error)
+                                }
+                            }
+                        }
+                    case .failure(let error):
+                        ShareDebugStore.shared.appendLog("createShare: operation failed: \(error)")
+                        continuation.resume(throwing: error)
+                    }
+                }
+                
+                database.add(operation)
+            }
+            
+            // Store the share record name and URL
+            record.cloudShareRecordName = savedShare.recordID.recordName
+            ShareDebugStore.shared.lastShareURL = savedShare.url
+            
+            // If URL is nil, refetch to get the server-populated URL
+            if savedShare.url == nil {
+                ShareDebugStore.shared.appendLog("createShare: share URL is nil after save, refetching from server")
+                if let refetchedShare = try? await database.record(for: savedShare.recordID) as? CKShare {
+                    ShareDebugStore.shared.lastShareURL = refetchedShare.url
+                    ShareDebugStore.shared.appendLog("createShare: refetched share url=\(String(describing: refetchedShare.url))")
+                    return refetchedShare
                 }
             }
-
-            let savedValues: [CKRecord] = savedRecordsByID.values.compactMap { result in
-                switch result {
-                case .success(let rec): return rec
-                case .failure(let err):
-                    ShareDebugStore.shared.appendLog("createShare: modifyRecords partial failure: \(err)")
-                    return nil
-                }
-            }
-
-            if let savedShare = savedValues.compactMap({ $0 as? CKShare }).first {
-                record.cloudShareRecordName = savedShare.recordID.recordName
-                ShareDebugStore.shared.lastShareURL = savedShare.url
-                ShareDebugStore.shared.appendLog("createShare: created share id=\(savedShare.recordID.recordName) zone=\(shareZoneName) url=\(String(describing: savedShare.url))")
-                return savedShare
-            }
-
-            // Fallback: try to fetch the share directly by its record ID
-            ShareDebugStore.shared.appendLog("createShare: share not in immediate results, attempting direct fetch for share ID=\(share.recordID.recordName)")
-            do {
-                if let fetchedShare = try await database.record(for: share.recordID) as? CKShare {
-                    record.cloudShareRecordName = fetchedShare.recordID.recordName
-                    ShareDebugStore.shared.lastShareURL = fetchedShare.url
-                    ShareDebugStore.shared.appendLog("createShare: fetched share id=\(fetchedShare.recordID.recordName) zone=\(shareZoneName) url=\(String(describing: fetchedShare.url))")
-                    return fetchedShare
-                }
-            } catch {
-                ShareDebugStore.shared.appendLog("createShare: direct fetch failed: \(error)")
-            }
-
-            throw NSError(domain: "CloudSyncService", code: 5, userInfo: [NSLocalizedDescriptionKey: "Failed to obtain saved CKShare from server (no share returned in modifyRecords results)."])
+            
+            ShareDebugStore.shared.appendLog("createShare: successfully created share id=\(savedShare.recordID.recordName) url=\(String(describing: savedShare.url))")
+            return savedShare
+            
+        } catch let error as NSError where error.domain == "CloudSyncService" {
+            // Re-throw our custom errors as-is
+            ShareDebugStore.shared.lastError = error
+            ShareDebugStore.shared.appendLog("createShare: failed with custom error: \(error)")
+            throw error
         } catch {
             ShareDebugStore.shared.lastError = error
             ShareDebugStore.shared.appendLog("createShare: failed: \(error)")
