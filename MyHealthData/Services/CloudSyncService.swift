@@ -270,16 +270,37 @@ final class CloudSyncService {
             // This is critical for establishing the share-root relationship in CloudKit
             ShareDebugStore.shared.appendLog("createShare: saving root=\(root.recordID.recordName) and share=\(share.recordID.recordName) in zone=\(shareZoneName)")
             
-            let saveResults: [CKRecord.ID: Result<CKRecord, Error>] = try await withCheckedThrowingContinuation { continuation in
+            let saveResults: [CKRecord.ID: CKRecord] = try await withCheckedThrowingContinuation { continuation in
                 let operation = CKModifyRecordsOperation(recordsToSave: [root, share], recordIDsToDelete: [])
                 operation.savePolicy = .allKeys  // Force save even if root hasn't changed
                 operation.qualityOfService = .userInitiated
                 
-                operation.modifyRecordsResultBlock = { (result: Result<(saveResults: [CKRecord.ID: Result<CKRecord, Error>], deleteResults: [CKRecord.ID: Result<Void, Error>]), Error>) in
+                var recordsSaved: [CKRecord.ID: CKRecord] = [:]
+                var recordErrors: [CKRecord.ID: Error] = [:]
+                
+                operation.perRecordSaveBlock = { recordID, result in
                     switch result {
-                    case .success(let resultTuple):
-                        ShareDebugStore.shared.appendLog("createShare: operation succeeded with \(resultTuple.saveResults.count) save results")
-                        continuation.resume(returning: resultTuple.saveResults)
+                    case .success(let record):
+                        recordsSaved[recordID] = record
+                        ShareDebugStore.shared.appendLog("createShare: saved record id=\(recordID.recordName) type=\(record.recordType)")
+                    case .failure(let error):
+                        recordErrors[recordID] = error
+                        ShareDebugStore.shared.appendLog("createShare: failed to save record id=\(recordID.recordName) error=\(error)")
+                    }
+                }
+                
+                operation.modifyRecordsResultBlock = { result in
+                    switch result {
+                    case .success:
+                        // Check if any records failed to save
+                        if !recordErrors.isEmpty {
+                            let firstError = recordErrors.values.first!
+                            ShareDebugStore.shared.appendLog("createShare: operation completed but \(recordErrors.count) record(s) failed")
+                            continuation.resume(throwing: firstError)
+                        } else {
+                            ShareDebugStore.shared.appendLog("createShare: operation succeeded with \(recordsSaved.count) saved records")
+                            continuation.resume(returning: recordsSaved)
+                        }
                     case .failure(let error):
                         ShareDebugStore.shared.appendLog("createShare: operation failed: \(error)")
                         continuation.resume(throwing: error)
@@ -293,19 +314,13 @@ final class CloudSyncService {
             var savedShare: CKShare?
             var savedRoot: CKRecord?
             
-            for (recordID, result) in saveResults {
-                switch result {
-                case .success(let record):
-                    if let share = record as? CKShare {
-                        savedShare = share
-                        ShareDebugStore.shared.appendLog("createShare: saved CKShare id=\(share.recordID.recordName) url=\(String(describing: share.url))")
-                    } else {
-                        savedRoot = record
-                        ShareDebugStore.shared.appendLog("createShare: saved root record id=\(record.recordID.recordName) type=\(record.recordType)")
-                    }
-                case .failure(let error):
-                    ShareDebugStore.shared.appendLog("createShare: failed to save record id=\(recordID.recordName) error=\(error)")
-                    throw error
+            for (_, record) in saveResults {
+                if let share = record as? CKShare {
+                    savedShare = share
+                    ShareDebugStore.shared.appendLog("createShare: saved CKShare id=\(share.recordID.recordName) url=\(String(describing: share.url))")
+                } else {
+                    savedRoot = record
+                    ShareDebugStore.shared.appendLog("createShare: saved root record id=\(record.recordID.recordName) type=\(record.recordType)")
                 }
             }
             
