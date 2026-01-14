@@ -24,7 +24,8 @@ final class CloudSyncService {
     }
     
     // Delay to allow server-side processing of share URL (in nanoseconds)
-    private let shareURLPopulationDelay: UInt64 = 500_000_000 // 0.5 seconds
+    private let shareURLPopulationDelay: UInt64 = 1_000_000_000 // 1 second
+    private let shareURLMaxRetries = 3 // Maximum number of refetch attempts
 
     /// CloudKit record type used for MedicalRecord mirrors.
     /// IMPORTANT:
@@ -256,6 +257,9 @@ final class CloudSyncService {
         // Create new share
         let share = CKShare(rootRecord: root)
         share[CKShare.SystemFieldKey.title] = "Shared Medical Record" as CKRecordValue
+        // Set public permission to allow participants to view/modify
+        // This is required for the share URL to be properly generated
+        share.publicPermission = .none  // Only invited participants can access
 
         do {
             // Use CKModifyRecordsOperation with .allKeys save policy
@@ -314,37 +318,60 @@ final class CloudSyncService {
             record.cloudShareRecordName = finalShare.recordID.recordName
             ShareDebugStore.shared.lastShareURL = finalShare.url
             
-            // If URL is nil, refetch to get the server-populated URL
+            // If URL is nil, retry fetching to get the server-populated URL
             // The URL is generated asynchronously by CloudKit servers and might not be available immediately
             if finalShare.url == nil {
-                ShareDebugStore.shared.appendLog("createShare: share URL is nil after save, will refetch after delay")
+                ShareDebugStore.shared.appendLog("createShare: share URL is nil after save, will retry fetching with exponential backoff")
                 
-                // Wait for server-side processing
-                try await Task.sleep(nanoseconds: shareURLPopulationDelay)
+                // Retry with exponential backoff
+                var retryCount = 0
+                var currentDelay = shareURLPopulationDelay
+                var refetchedShare: CKShare?
                 
-                do {
-                    if let refetchedShare = try await database.record(for: finalShare.recordID) as? CKShare {
-                        ShareDebugStore.shared.lastShareURL = refetchedShare.url
-                        ShareDebugStore.shared.appendLog("createShare: refetched share id=\(refetchedShare.recordID.recordName) url=\(String(describing: refetchedShare.url))")
-                        
-                        // Verify the root record has the share reference
-                        do {
-                            let refetchedRoot = try await database.record(for: root.recordID)
-                            if let shareRef = refetchedRoot.share {
-                                ShareDebugStore.shared.appendLog("createShare: root record has share reference=\(shareRef.recordID.recordName)")
+                while retryCount < shareURLMaxRetries {
+                    ShareDebugStore.shared.appendLog("createShare: retry attempt \(retryCount + 1)/\(shareURLMaxRetries) after \(Double(currentDelay) / 1_000_000_000)s delay")
+                    try await Task.sleep(nanoseconds: currentDelay)
+                    
+                    do {
+                        if let fetchedShare = try await database.record(for: finalShare.recordID) as? CKShare {
+                            ShareDebugStore.shared.appendLog("createShare: refetched share id=\(fetchedShare.recordID.recordName) url=\(String(describing: fetchedShare.url))")
+                            
+                            if fetchedShare.url != nil {
+                                refetchedShare = fetchedShare
+                                ShareDebugStore.shared.lastShareURL = fetchedShare.url
+                                ShareDebugStore.shared.appendLog("createShare: SUCCESS - share URL populated after \(retryCount + 1) retries")
+                                break
                             } else {
-                                ShareDebugStore.shared.appendLog("createShare: WARNING - root record does not have share reference")
+                                ShareDebugStore.shared.appendLog("createShare: URL still nil after retry \(retryCount + 1)")
                             }
-                        } catch {
-                            ShareDebugStore.shared.appendLog("createShare: WARNING - failed to refetch root record: \(error)")
+                        } else {
+                            ShareDebugStore.shared.appendLog("createShare: WARNING - refetch did not return a CKShare on retry \(retryCount + 1)")
                         }
-                        
-                        return refetchedShare
-                    } else {
-                        ShareDebugStore.shared.appendLog("createShare: WARNING - refetch did not return a CKShare")
+                    } catch {
+                        ShareDebugStore.shared.appendLog("createShare: WARNING - refetch failed on retry \(retryCount + 1): \(error)")
                     }
-                } catch {
-                    ShareDebugStore.shared.appendLog("createShare: WARNING - refetch of share failed: \(error)")
+                    
+                    retryCount += 1
+                    currentDelay *= 2  // Exponential backoff
+                }
+                
+                // If we got a refetched share with URL, verify root has share reference and return it
+                if let refetchedShare = refetchedShare, refetchedShare.url != nil {
+                    // Verify the root record has the share reference
+                    do {
+                        let refetchedRoot = try await database.record(for: root.recordID)
+                        if let shareRef = refetchedRoot.share {
+                            ShareDebugStore.shared.appendLog("createShare: root record has share reference=\(shareRef.recordID.recordName)")
+                        } else {
+                            ShareDebugStore.shared.appendLog("createShare: WARNING - root record does not have share reference")
+                        }
+                    } catch {
+                        ShareDebugStore.shared.appendLog("createShare: WARNING - failed to refetch root record: \(error)")
+                    }
+                    
+                    return refetchedShare
+                } else {
+                    ShareDebugStore.shared.appendLog("createShare: WARNING - share URL still nil after all retries. This may indicate a CloudKit configuration issue or simulator limitation.")
                 }
             }
             
