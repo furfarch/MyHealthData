@@ -99,6 +99,15 @@ final class CloudKitSharedMedicalRecordFetcher {
             record.isCloudEnabled = true
             record.cloudRecordName = ckRecord.recordID.recordName
 
+            // Records coming from the shared DB are, by definition, shared.
+            if let shareRef = ckRecord.share {
+                record.cloudShareRecordName = shareRef.recordID.recordName
+                record.isSharingEnabled = true
+            } else {
+                // Still treat it as shared even if we didn't get the reference for some reason.
+                record.isSharingEnabled = true
+            }
+
             if existing == nil {
                 context.insert(record)
             }
