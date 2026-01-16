@@ -217,8 +217,7 @@ final class CloudSyncService {
         try await ensureShareZoneExists()
         try await syncIfNeeded(record: record)
 
-        // Safety: shares cannot exist in the default zone. Ensure the root record is in our share zone.
-        // This also covers cases where record.cloudRecordName was persisted from legacy/default-zone state.
+        // Safety: shares can't exist in the default zone. Ensure the root is in our share zone.
         try await migrateRootRecordToShareZoneIfNeeded(record: record)
 
         let rootID = zonedRecordID(for: record)

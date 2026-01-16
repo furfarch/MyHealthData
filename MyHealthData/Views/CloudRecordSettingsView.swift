@@ -44,6 +44,16 @@ struct CloudRecordSettingsView: View {
             }
         }
         .navigationTitle("iCloud")
+        .onChange(of: cloudEnabled) { _, newValue in
+            guard newValue == false else { return }
+            // If the user disables iCloud globally, force all records back to local-only.
+            for record in records {
+                if record.isCloudEnabled || record.isSharingEnabled {
+                    CloudSyncService.shared.disableCloud(for: record)
+                }
+            }
+            try? modelContext.save()
+        }
         .confirmationDialog(
             "Create Share?",
             isPresented: $showShareConfirm,
@@ -140,22 +150,9 @@ struct CloudRecordSettingsView: View {
             .disabled(!cloudEnabled || !record.isCloudEnabled)
 
             if record.isSharingEnabled {
-                HStack(spacing: 12) {
-                    Text(record.shareParticipantsSummary.isEmpty ? "Invites: (not loaded yet)" : "Invites: \(record.shareParticipantsSummary)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    Spacer(minLength: 8)
-
-                    Button("Reload") {
-                        Task { @MainActor in
-                            await CloudKitShareParticipantsService.shared.refreshParticipantsSummary(for: record)
-                            try? modelContext.save()
-                        }
-                    }
+                Text(record.shareParticipantsSummary.isEmpty ? "Shared with: (not loaded yet)" : "Shared with: \(record.shareParticipantsSummary)")
                     .font(.caption)
-                    .buttonStyle(.bordered)
-                }
+                    .foregroundStyle(.secondary)
             }
 
             if !cloudEnabled {

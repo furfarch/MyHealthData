@@ -16,8 +16,6 @@ struct MyHealthDataApp: App {
     // Keep a single fetcher instance alive for the app lifetime.
     private let cloudFetcher: CloudKitMedicalRecordFetcher
 
-    @AppStorage("cloudEnabled") private var cloudEnabled: Bool = false
-
     init() {
         let schema = Schema([
             MedicalRecord.self,
@@ -31,7 +29,6 @@ struct MyHealthDataApp: App {
             MedicalDocumentEntry.self,
             EmergencyContact.self,
             WeightEntry.self,
-            // Newly added models must be in the schema to ensure persistence.
             HumanDoctorEntry.self,
             PetYearlyCostEntry.self
         ])
@@ -61,7 +58,6 @@ struct MyHealthDataApp: App {
         WindowGroup {
             ContentView()
                 .task {
-                    guard cloudEnabled else { return }
                     // Pull changes on launch.
                     self.cloudFetcher.setModelContext(self.modelContainer.mainContext)
                     self.cloudFetcher.fetchChanges()
@@ -70,7 +66,6 @@ struct MyHealthDataApp: App {
         .modelContainer(modelContainer)
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
-                guard cloudEnabled else { return }
                 // Pull changes when app becomes active.
                 Task { @MainActor in
                     self.cloudFetcher.setModelContext(self.modelContainer.mainContext)
