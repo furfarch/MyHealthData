@@ -76,6 +76,12 @@ final class MedicalRecord {
     @Relationship(deleteRule: .cascade, inverse: \EmergencyContact.record)
     var emergencyContacts: [EmergencyContact] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \HumanDoctorEntry.record)
+    var humanDoctors: [HumanDoctorEntry] = []
+
+    @Relationship(deleteRule: .cascade, inverse: \PetYearlyCostEntry.record)
+    var petYearlyCosts: [PetYearlyCostEntry] = []
+
     // CloudKit integration flags (opt-in per-record)
     var isCloudEnabled: Bool = false
     var cloudRecordName: String? = nil
@@ -205,6 +211,8 @@ final class MedicalRecord {
         medicaldocument: [MedicalDocumentEntry] = [],
         weights: [WeightEntry] = [],
         emergencyContacts: [EmergencyContact] = [],
+        humanDoctors: [HumanDoctorEntry] = [],
+        petYearlyCosts: [PetYearlyCostEntry] = [],
         isCloudEnabled: Bool = false,
         cloudRecordName: String? = nil,
         cloudShareRecordName: String? = nil,
@@ -255,6 +263,8 @@ final class MedicalRecord {
         self.medicaldocument = medicaldocument
         self.weights = weights
         self.emergencyContacts = emergencyContacts
+        self.humanDoctors = humanDoctors
+        self.petYearlyCosts = petYearlyCosts
 
         self.isCloudEnabled = isCloudEnabled
         self.cloudRecordName = cloudRecordName

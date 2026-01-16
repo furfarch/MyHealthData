@@ -91,7 +91,13 @@ struct RecordEditorView: View {
 
             toolbarContent
         }
-        .alert("Save Error", isPresented: Binding(get: { saveErrorMessage != nil }, set: { if !$0 { saveErrorMessage = nil } })) {
+        .alert(
+            "Save Error",
+            isPresented: Binding(
+                get: { saveErrorMessage != nil },
+                set: { if !$0 { saveErrorMessage = nil } }
+            )
+        ) {
             Button("OK", role: .cancel) { saveErrorMessage = nil }
         } message: {
             Text(saveErrorMessage ?? "Unknown error")
@@ -173,7 +179,7 @@ struct RecordEditorView: View {
                     .map { entry in
                         [
                             entry.date?.formatted(date: .abbreviated, time: .omitted) ?? "—",
-                            String(format: "%.1f", entry.weightKg),
+                            entry.weightKg.map { String(format: "%.1f", $0) } ?? "—",
                             entry.comment
                         ]
                     }
