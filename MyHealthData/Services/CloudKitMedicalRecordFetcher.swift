@@ -271,10 +271,17 @@ class CloudKitMedicalRecordFetcher: ObservableObject {
 
             // Prevent stale cloud copies from overwriting newer local edits.
             if let existing, existing.updatedAt > cloudUpdatedAt {
+                ShareDebugStore.shared.appendLog("CloudKitMedicalRecordFetcher: skipping stale cloud record uuid=\(uuid) (local=\(existing.updatedAt), cloud=\(cloudUpdatedAt))")
                 continue
             }
 
             let record = existing ?? MedicalRecord(uuid: uuid)
+            
+            if existing != nil {
+                ShareDebugStore.shared.appendLog("CloudKitMedicalRecordFetcher: updating existing record uuid=\(uuid)")
+            } else {
+                ShareDebugStore.shared.appendLog("CloudKitMedicalRecordFetcher: creating new record uuid=\(uuid)")
+            }
 
             record.createdAt = ckRecord["createdAt"] as? Date ?? record.createdAt
             record.updatedAt = cloudUpdatedAt

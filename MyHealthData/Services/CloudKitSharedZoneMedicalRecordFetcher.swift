@@ -99,10 +99,17 @@ final class CloudKitSharedZoneMedicalRecordFetcher {
             let existing = (try? context.fetch(fetchDescriptor))?.first
 
             if let existing, existing.updatedAt > cloudUpdatedAt {
+                ShareDebugStore.shared.appendLog("CloudKitSharedZoneMedicalRecordFetcher: skipping stale cloud record uuid=\(uuid) (local=\(existing.updatedAt), cloud=\(cloudUpdatedAt))")
                 continue
             }
 
             let record = existing ?? MedicalRecord(uuid: uuid)
+            
+            if existing != nil {
+                ShareDebugStore.shared.appendLog("CloudKitSharedZoneMedicalRecordFetcher: updating existing record uuid=\(uuid)")
+            } else {
+                ShareDebugStore.shared.appendLog("CloudKitSharedZoneMedicalRecordFetcher: creating new record uuid=\(uuid)")
+            }
 
             record.createdAt = ckRecord["createdAt"] as? Date ?? record.createdAt
             record.updatedAt = cloudUpdatedAt

@@ -170,6 +170,12 @@ private enum CloudKitSharedImporter {
             let fetchDescriptor = FetchDescriptor<MedicalRecord>(predicate: #Predicate { $0.uuid == uuid })
             let existing = (try? modelContext.fetch(fetchDescriptor))?.first
             let record = existing ?? MedicalRecord(uuid: uuid)
+            
+            if existing != nil {
+                ShareDebugStore.shared.appendLog("CloudKitSharedImporter: updating existing record uuid=\(uuid)")
+            } else {
+                ShareDebugStore.shared.appendLog("CloudKitSharedImporter: creating new record uuid=\(uuid)")
+            }
 
             record.createdAt = ckRecord["createdAt"] as? Date ?? record.createdAt
             record.updatedAt = (ckRecord["updatedAt"] as? Date) ?? record.updatedAt
