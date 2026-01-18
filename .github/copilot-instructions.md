@@ -1,3 +1,7 @@
+---
+description: 'Copilot instructions for MyHealthData - a SwiftUI-based iOS/macOS app for managing personal medical records with SwiftData and CloudKit integration'
+---
+
 # MyHealthData - Copilot Instructions
 
 ## Project Overview
@@ -89,6 +93,23 @@ MyHealthData is a SwiftUI-based iOS/macOS application for managing personal medi
 - Verify cascade delete behavior
 - Test edge cases (empty strings, nil values, etc.)
 - Avoid using predicate APIs/macros in tests; fetch all and filter in-memory for compatibility
+- **Example test patterns:**
+  ```swift
+  // Testing persistence
+  @Test @MainActor func testPersistence() async throws {
+      let schema = Schema([MedicalRecord.self])
+      let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, cloudKitDatabase: .none)
+      let container = try ModelContainer(for: schema, configurations: [config])
+      // Test your persistence logic
+  }
+  
+  // Testing computed properties
+  @Test func testDisplayName() async throws {
+      let record = MedicalRecord()
+      record.personalGivenName = "John"
+      #expect(record.displayName == "John")
+  }
+  ```
 
 ## File Organization
 
@@ -107,14 +128,30 @@ MyHealthData/
 ### Building
 
 - This is an Xcode project (`.xcodeproj`)
-- Build using Xcode or `xcodebuild` command-line tools
+- Build using Xcode IDE or command-line tools
 - Supports both iOS and macOS targets
+- **Command-line build examples:**
+  ```bash
+  # Build for iOS
+  xcodebuild -project MyHealthData.xcodeproj -scheme MyHealthData -destination 'platform=iOS Simulator,name=iPhone 15' build
+  
+  # Build for macOS
+  xcodebuild -project MyHealthData.xcodeproj -scheme MyHealthData -destination 'platform=macOS' build
+  ```
 
 ### Running Tests
 
 - Tests are located in `MyHealthDataTests/`
-- Use Swift Testing framework
-- Run tests through Xcode Test Navigator or using `xcodebuild test`
+- Use Swift Testing framework (not XCTest)
+- Run tests through Xcode Test Navigator or command-line
+- **Command-line test examples:**
+  ```bash
+  # Run all tests on iOS Simulator
+  xcodebuild test -project MyHealthData.xcodeproj -scheme MyHealthData -destination 'platform=iOS Simulator,name=iPhone 15'
+  
+  # Run all tests on macOS
+  xcodebuild test -project MyHealthData.xcodeproj -scheme MyHealthData -destination 'platform=macOS'
+  ```
 
 ## Cloud and Sharing Features
 
@@ -130,3 +167,66 @@ MyHealthData/
 - Legacy emergency contact fields exist for backward compatibility
 - New emergency contacts use the `EmergencyContact` relationship
 - Always use persistent storage unless specifically testing in-memory scenarios
+
+## Security and Privacy
+
+- **NEVER** commit sensitive medical data, API keys, or credentials to the repository
+- Use iOS/macOS Keychain for storing sensitive user credentials if needed
+- Respect user privacy - medical data is sensitive and must be handled with care
+- CloudKit data should be properly secured and access controlled
+- Test with mock/synthetic data, never use real patient information
+- Follow HIPAA-like privacy principles even though this is a personal app
+
+## Common Code Patterns
+
+### Creating a New Model
+
+```swift
+@Model
+final class NewEntry {
+    var uuid: String = UUID().uuidString
+    var id: String { uuid }
+    var createdAt: Date = Date()
+    
+    @Relationship(deleteRule: .nullify, inverse: \MedicalRecord.newEntries)
+    var record: MedicalRecord?
+    
+    init() {
+        self.uuid = UUID().uuidString
+        self.createdAt = Date()
+    }
+}
+```
+
+### Creating a SwiftUI View with ModelContext
+
+```swift
+struct MyView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query private var records: [MedicalRecord]
+    
+    var body: some View {
+        // Your view code
+    }
+}
+```
+
+### Saving Changes to ModelContext
+
+```swift
+// After modifying model objects
+do {
+    try modelContext.save()
+} catch {
+    print("[ComponentName] Error saving: \(error)")
+}
+```
+
+### Preview Provider Pattern
+
+```swift
+#Preview {
+    MyView()
+        .modelContainer(for: MedicalRecord.self, inMemory: true)
+}
+```
