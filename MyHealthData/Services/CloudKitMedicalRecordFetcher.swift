@@ -155,10 +155,8 @@ class CloudKitMedicalRecordFetcher: ObservableObject {
             if !recordIDs.isEmpty {
                 ShareDebugStore.shared.appendLog("CloudKitMedicalRecordFetcher: successfully deleted \(recordIDs.count) record(s)")
                 
-                // Post notification to trigger UI refresh
-                Task { @MainActor in
-                    NotificationCenter.default.post(name: Notification.Name("MyHealthData.DidImportRecords"), object: nil)
-                }
+                // Post notification to trigger UI refresh (already on MainActor)
+                NotificationCenter.default.post(name: NotificationNames.didImportRecords, object: nil)
             }
         } catch {
             ShareDebugStore.shared.appendLog("CloudKitMedicalRecordFetcher: failed saving deletions: \(error)")
@@ -329,10 +327,8 @@ class CloudKitMedicalRecordFetcher: ObservableObject {
             try context.save()
             ShareDebugStore.shared.appendLog("CloudKitMedicalRecordFetcher: successfully imported \(records.count) record(s) into local store")
             
-            // Post notification to trigger UI refresh
-            Task { @MainActor in
-                NotificationCenter.default.post(name: Notification.Name("MyHealthData.DidImportRecords"), object: nil)
-            }
+            // Post notification to trigger UI refresh (already on MainActor)
+            NotificationCenter.default.post(name: NotificationNames.didImportRecords, object: nil)
         } catch {
             print("Failed to save CloudKit import: \(error)")
             ShareDebugStore.shared.appendLog("CloudKitMedicalRecordFetcher: failed to save import: \(error)")

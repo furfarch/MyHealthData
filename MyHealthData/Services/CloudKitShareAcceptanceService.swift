@@ -7,9 +7,6 @@ import SwiftData
 final class CloudKitShareAcceptanceService {
     static let shared = CloudKitShareAcceptanceService()
 
-    // Notification posted after successful accept/import (UI observes this)
-    static let didAcceptShareNotification = Notification.Name("MyHealthData.DidAcceptShare")
-
     private let containerIdentifier = "iCloud.com.furfarch.MyHealthData"
     private var container: CKContainer { CKContainer(identifier: containerIdentifier) }
 
@@ -56,7 +53,7 @@ final class CloudKitShareAcceptanceService {
             )
 
             // Post notification with imported names so UI can show a concise alert
-            NotificationCenter.default.post(name: Self.didAcceptShareNotification, object: nil, userInfo: ["names": displayNames])
+            NotificationCenter.default.post(name: NotificationNames.didAcceptShare, object: nil, userInfo: ["names": displayNames])
 
             ShareDebugStore.shared.appendLog("CloudKitShareAcceptanceService: import complete (count=\(recordsByID.count))")
         } catch {
@@ -233,10 +230,8 @@ private enum CloudKitSharedImporter {
             try modelContext.save()
             ShareDebugStore.shared.appendLog("CloudKitSharedImporter: successfully saved \(ckRecords.count) record(s)")
             
-            // Post notification to trigger UI refresh
-            Task { @MainActor in
-                NotificationCenter.default.post(name: Notification.Name("MyHealthData.DidImportRecords"), object: nil)
-            }
+            // Post notification to trigger UI refresh (already on MainActor)
+            NotificationCenter.default.post(name: NotificationNames.didImportRecords, object: nil)
         } catch {
             ShareDebugStore.shared.appendLog("CloudKitSharedImporter: failed saving import: \(error)")
         }

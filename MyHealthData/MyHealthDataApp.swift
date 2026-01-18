@@ -106,7 +106,7 @@ struct MyHealthDataApp: App {
                 modelContainer.mainContext.processPendingChanges()
                 
                 // Post notification to ensure UI refreshes
-                NotificationCenter.default.post(name: Notification.Name("MyHealthData.DidImportRecords"), object: nil)
+                NotificationCenter.default.post(name: NotificationNames.didImportRecords, object: nil)
             }
         } catch {
             ShareDebugStore.shared.appendLog("MyHealthDataApp: shared fetch failed: \(error)")
