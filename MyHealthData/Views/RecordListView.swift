@@ -26,9 +26,15 @@ struct RecordListView: View {
             .refreshable {
                 await refreshFromCloud()
             }
+            .onAppear {
+                ShareDebugStore.shared.appendLog("RecordListView: @Query found \(allRecords.count) record(s)")
+            }
+            .onChange(of: allRecords.count) { oldCount, newCount in
+                ShareDebugStore.shared.appendLog("RecordListView: record count changed from \(oldCount) to \(newCount)")
+            }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("MyHealthData.DidImportRecords"))) { _ in
                 // Force a refresh when records are imported from CloudKit
-                ShareDebugStore.shared.appendLog("RecordListView: received DidImportRecords notification, refreshing UI")
+                ShareDebugStore.shared.appendLog("RecordListView: received DidImportRecords notification, refreshing UI (current count: \(allRecords.count))")
                 refreshID = UUID()
             }
             .navigationTitle("MyHealthData")
