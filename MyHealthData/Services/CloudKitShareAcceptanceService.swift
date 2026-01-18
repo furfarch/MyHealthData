@@ -7,7 +7,7 @@ import SwiftData
 final class CloudKitShareAcceptanceService {
     static let shared = CloudKitShareAcceptanceService()
 
-    // Notification posted after successful accept/import
+    // Notification posted after successful accept/import (UI observes this)
     static let didAcceptShareNotification = Notification.Name("MyHealthData.DidAcceptShare")
 
     private let containerIdentifier = "iCloud.com.furfarch.MyHealthData"
@@ -37,13 +37,7 @@ final class CloudKitShareAcceptanceService {
                 ShareDebugStore.shared.appendLog("CloudKitShareAcceptanceService: unable to fetch CKShare for participants: \(error)")
             }
 
-            CloudKitSharedImporter.upsertSharedMedicalRecords(
-                recordsByID.values,
-                share: fetchedShare,
-                modelContext: modelContext
-            )
-
-            // Compute display names for UI feedback
+            // Compute display names from CKRecords for UI notification and then import
             let displayNames: [String] = recordsByID.values.compactMap { ckRecord in
                 if let name = ckRecord["personalName"] as? String, !name.isEmpty { return name }
                 let given = ckRecord["personalGivenName"] as? String ?? ""
@@ -55,7 +49,13 @@ final class CloudKitShareAcceptanceService {
                 return nil
             }
 
-            // Post notification so UI can show immediate feedback (e.g. '<name> imported')
+            CloudKitSharedImporter.upsertSharedMedicalRecords(
+                recordsByID.values,
+                share: fetchedShare,
+                modelContext: modelContext
+            )
+
+            // Post notification with imported names so UI can show a concise alert
             NotificationCenter.default.post(name: Self.didAcceptShareNotification, object: nil, userInfo: ["names": displayNames])
 
             ShareDebugStore.shared.appendLog("CloudKitShareAcceptanceService: import complete (count=\(recordsByID.count))")

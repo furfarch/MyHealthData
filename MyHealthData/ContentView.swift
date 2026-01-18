@@ -23,13 +23,37 @@ struct ContentView: View {
                     await CloudKitShareAcceptanceService.shared.acceptShare(from: url, modelContext: modelContext)
                 }
             }
-            .onReceive(NotificationCenter.default.publisher(for: CloudKitShareAcceptanceService.didAcceptShareNotification)) { notif in
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("MyHealthData.DidAcceptShare"))) { notif in
+                // Show brief alert with the imported record name(s) and ensure shared-zone fetch ran
                 if let userInfo = notif.userInfo, let names = userInfo["names"] as? [String], let first = names.first {
                     importedName = first
                 } else {
                     importedName = "record"
                 }
                 showShareAcceptedAlert = true
+
+                // Ensure shared-zone fetch runs and imports any related records
+                Task { @MainActor in
+                    let sharedFetcher = CloudKitSharedZoneMedicalRecordFetcher(containerIdentifier: "iCloud.com.furfarch.MyHealthData", modelContext: modelContext)
+                    do {
+                        _ = try await sharedFetcher.fetchAllSharedAcrossZonesAsync()
+                        ShareDebugStore.shared.appendLog("ContentView: triggered shared-zone fetch after accept")
+                    } catch {
+                        ShareDebugStore.shared.appendLog("ContentView: shared-zone fetch after accept failed: \(error)")
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("MyHealthData.DidChangeSharedRecords"))) { _ in
+                // Another component requested a UI refresh for shared records - perform a shared-zone fetch
+                Task { @MainActor in
+                    let sharedFetcher = CloudKitSharedZoneMedicalRecordFetcher(containerIdentifier: "iCloud.com.furfarch.MyHealthData", modelContext: modelContext)
+                    do {
+                        _ = try await sharedFetcher.fetchAllSharedAcrossZonesAsync()
+                        ShareDebugStore.shared.appendLog("ContentView: triggered shared-zone fetch for DidChangeSharedRecords")
+                    } catch {
+                        ShareDebugStore.shared.appendLog("ContentView: DidChangeSharedRecords fetch failed: \(error)")
+                    }
+                }
             }
             .alert("Imported", isPresented: $showShareAcceptedAlert) {
                 Button("OK", role: .cancel) {}
