@@ -346,7 +346,11 @@ final class CloudSyncService {
             // Store the share record name and URL
             record.cloudShareRecordName = finalShare.recordID.recordName
             ShareDebugStore.shared.lastShareURL = finalShare.url
-            
+
+            // Mark record as sharing-enabled so the UI reflects shared state
+            record.isSharingEnabled = true
+            record.updatedAt = Date()
+
             // If URL is nil, retry fetching to get the server-populated URL
             // The URL is generated asynchronously by CloudKit servers and might not be available immediately
             if finalShare.url == nil {

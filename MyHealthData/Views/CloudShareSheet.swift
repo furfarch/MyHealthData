@@ -1,5 +1,6 @@
 import SwiftUI
 import CloudKit
+import SwiftData
 
 #if os(iOS) || targetEnvironment(macCatalyst)
 import UIKit
@@ -9,6 +10,7 @@ struct CloudShareSheet: View {
     let record: MedicalRecord
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     @State private var isBusy = false
     @State private var errorMessage: String?

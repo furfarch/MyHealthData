@@ -13,6 +13,11 @@ struct MyHealthDataApp: App {
     private let modelContainer: ModelContainer
     @Environment(\.scenePhase) private var scenePhase: ScenePhase
 
+    #if canImport(UIKit)
+    // Register AppDelegate to capture incoming URLs/user activities before SwiftUI scene is ready
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    #endif
+
     // Keep a single fetcher instance alive for the app lifetime.
     private let cloudFetcher: CloudKitMedicalRecordFetcher
 
@@ -67,23 +72,5 @@ struct MyHealthDataApp: App {
                 }
         }
         .modelContainer(modelContainer)
-        .onChange(of: scenePhase) { newPhase, _ in
-            if newPhase == .active {
-                // Ensure fetcher has context and attempt to import incremental changes
-                cloudFetcher.setModelContext(modelContainer.mainContext)
-                cloudFetcher.fetchChanges()
-
-                // Also attempt to fetch accepted/shared records across shared zones
-                Task {
-                    let sharedFetcher = CloudKitSharedZoneMedicalRecordFetcher(containerIdentifier: "iCloud.com.furfarch.MyHealthData", modelContext: modelContainer.mainContext)
-                    do {
-                        _ = try await sharedFetcher.fetchAllSharedAcrossZonesAsync()
-                    } catch {
-                        // Log to ShareDebugStore so the export includes any failure details
-                        ShareDebugStore.shared.appendLog("MyHealthDataApp: active shared fetch failed: \(error)")
-                    }
-                }
-            }
-        }
     }
 }

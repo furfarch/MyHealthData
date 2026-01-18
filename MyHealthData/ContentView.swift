@@ -11,6 +11,10 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
 
+    // Show alert when a share is accepted and imported
+    @State private var showShareAcceptedAlert: Bool = false
+    @State private var importedName: String = ""
+
     var body: some View {
         RecordListView()
             .onOpenURL { url in
@@ -18,6 +22,19 @@ struct ContentView: View {
                 Task { @MainActor in
                     await CloudKitShareAcceptanceService.shared.acceptShare(from: url, modelContext: modelContext)
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: CloudKitShareAcceptanceService.didAcceptShareNotification)) { notif in
+                if let userInfo = notif.userInfo, let names = userInfo["names"] as? [String], let first = names.first {
+                    importedName = first
+                } else {
+                    importedName = "record"
+                }
+                showShareAcceptedAlert = true
+            }
+            .alert("Imported", isPresented: $showShareAcceptedAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("\(importedName) imported")
             }
     }
 }

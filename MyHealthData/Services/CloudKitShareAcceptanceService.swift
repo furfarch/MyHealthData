@@ -7,6 +7,9 @@ import SwiftData
 final class CloudKitShareAcceptanceService {
     static let shared = CloudKitShareAcceptanceService()
 
+    // Notification posted after successful accept/import
+    static let didAcceptShareNotification = Notification.Name("MyHealthData.DidAcceptShare")
+
     private let containerIdentifier = "iCloud.com.furfarch.MyHealthData"
     private var container: CKContainer { CKContainer(identifier: containerIdentifier) }
 
@@ -39,6 +42,21 @@ final class CloudKitShareAcceptanceService {
                 share: fetchedShare,
                 modelContext: modelContext
             )
+
+            // Compute display names for UI feedback
+            let displayNames: [String] = recordsByID.values.compactMap { ckRecord in
+                if let name = ckRecord["personalName"] as? String, !name.isEmpty { return name }
+                let given = ckRecord["personalGivenName"] as? String ?? ""
+                let family = ckRecord["personalFamilyName"] as? String ?? ""
+                let combined = [given, family].filter { !$0.isEmpty }.joined(separator: " ")
+                if !combined.isEmpty { return combined }
+                if let animal = ckRecord["personalAnimalID"] as? String, !animal.isEmpty { return animal }
+                if let uuid = ckRecord["uuid"] as? String { return uuid }
+                return nil
+            }
+
+            // Post notification so UI can show immediate feedback (e.g. '<name> imported')
+            NotificationCenter.default.post(name: Self.didAcceptShareNotification, object: nil, userInfo: ["names": displayNames])
 
             ShareDebugStore.shared.appendLog("CloudKitShareAcceptanceService: import complete (count=\(recordsByID.count))")
         } catch {
