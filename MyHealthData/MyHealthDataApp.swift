@@ -20,6 +20,7 @@ struct MyHealthDataApp: App {
 
     // Keep a single fetcher instance alive for the app lifetime.
     private let cloudFetcher: CloudKitMedicalRecordFetcher
+    private let sharedFetcher: CloudKitSharedZoneMedicalRecordFetcher
 
     init() {
         let schema = Schema([
@@ -58,8 +59,12 @@ struct MyHealthDataApp: App {
             self.modelContainer = try! ModelContainer(for: schema, configurations: [memoryConfig])
         }
 
-        // Ensure the fetcher has the model context so imports can run
+        // Ensure the fetchers have the model context so imports can run
         self.cloudFetcher.setModelContext(self.modelContainer.mainContext)
+        self.sharedFetcher = CloudKitSharedZoneMedicalRecordFetcher(
+            containerIdentifier: "iCloud.com.furfarch.MyHealthData",
+            modelContext: self.modelContainer.mainContext
+        )
     }
 
     var body: some Scene {
@@ -87,10 +92,6 @@ struct MyHealthDataApp: App {
     @MainActor
     private func fetchSharedRecords() async {
         // Fetch shared records from CloudKit shared database
-        let sharedFetcher = CloudKitSharedZoneMedicalRecordFetcher(
-            containerIdentifier: "iCloud.com.furfarch.MyHealthData",
-            modelContext: modelContainer.mainContext
-        )
         do {
             let count = try await sharedFetcher.fetchAllSharedAcrossZonesAsync()
             if count > 0 {
