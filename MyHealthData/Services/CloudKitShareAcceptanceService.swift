@@ -67,7 +67,7 @@ final class CloudKitShareAcceptanceService {
             op.qualityOfService = .userInitiated
 
             var resumed = false
-            func resumeOnce(returning result: Result<CKShare.Metadata, Error>) {
+            func resumeOnce(_ result: Result<CKShare.Metadata, Error>) {
                 guard !resumed else { return }
                 resumed = true
                 switch result {
@@ -80,10 +80,8 @@ final class CloudKitShareAcceptanceService {
 
             op.perShareMetadataResultBlock = { _, result in
                 switch result {
-                case .success(let md):
-                    captured = md
-                case .failure(let err):
-                    resumeOnce(returning: .failure(err))
+                case .success(let md): captured = md
+                case .failure(let err): resumeOnce(.failure(err))
                 }
             }
 
@@ -91,12 +89,11 @@ final class CloudKitShareAcceptanceService {
                 switch result {
                 case .success:
                     if let md = captured {
-                        resumeOnce(returning: .success(md))
+                        resumeOnce(.success(md))
                     } else {
-                        resumeOnce(returning: .failure(NSError(domain: "CloudKitShareAcceptanceService", code: 1, userInfo: [NSLocalizedDescriptionKey: "No share metadata returned."])))
+                        resumeOnce(.failure(NSError(domain: "CloudKitShareAcceptanceService", code: 1, userInfo: [NSLocalizedDescriptionKey: "No share metadata returned."])))
                     }
-                case .failure(let err):
-                    resumeOnce(returning: .failure(err))
+                case .failure(let err): resumeOnce(.failure(err))
                 }
             }
 
@@ -110,7 +107,7 @@ final class CloudKitShareAcceptanceService {
             op.qualityOfService = .userInitiated
 
             var resumed = false
-            func resumeOnce(returning result: Result<Void, Error>) {
+            func resumeOnce(_ result: Result<Void, Error>) {
                 guard !resumed else { return }
                 resumed = true
                 switch result {
@@ -130,10 +127,8 @@ final class CloudKitShareAcceptanceService {
 
             op.acceptSharesResultBlock = { result in
                 switch result {
-                case .success:
-                    resumeOnce(returning: .success(()))
-                case .failure(let err):
-                    resumeOnce(returning: .failure(err))
+                case .success: resumeOnce(.success(()))
+                case .failure(let err): resumeOnce(.failure(err))
                 }
             }
 
@@ -147,7 +142,7 @@ final class CloudKitShareAcceptanceService {
             op.qualityOfService = .userInitiated
 
             var resumed = false
-            func resumeOnce(returning result: Result<[CKRecord.ID: CKRecord], Error>) {
+            func resumeOnce(_ result: Result<[CKRecord.ID: CKRecord], Error>) {
                 guard !resumed else { return }
                 resumed = true
                 switch result {
@@ -161,17 +156,14 @@ final class CloudKitShareAcceptanceService {
             op.perRecordResultBlock = { recordID, result in
                 switch result {
                 case .success(let rec): fetched[recordID] = rec
-                case .failure(let err):
-                    ShareDebugStore.shared.appendLog("CloudKitShareAcceptanceService: perRecord error id=\(recordID): \(err)")
+                case .failure(let err): ShareDebugStore.shared.appendLog("CloudKitShareAcceptanceService: perRecord error id=\(recordID): \(err)")
                 }
             }
 
             op.fetchRecordsResultBlock = { result in
                 switch result {
-                case .success:
-                    resumeOnce(returning: .success(fetched))
-                case .failure(let err):
-                    resumeOnce(returning: .failure(err))
+                case .success: resumeOnce(.success(fetched))
+                case .failure(let err): resumeOnce(.failure(err))
                 }
             }
 
@@ -222,7 +214,7 @@ private enum CloudKitSharedImporter {
             if let v = ckRecord["emergencyNumber"] as? String { record.emergencyNumber = v }
             if let v = ckRecord["emergencyEmail"] as? String { record.emergencyEmail = v }
 
-            // For imported shared records, consider them cloud-enabled.
+            // Mark imported shared record as cloud-enabled and sharing-enabled so it appears in the UI.
             record.isCloudEnabled = true
             record.isSharingEnabled = true
             record.cloudRecordName = ckRecord.recordID.recordName

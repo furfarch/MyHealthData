@@ -4,83 +4,132 @@ import SwiftUI
 
 @Model
 final class MedicalRecord {
-    var createdAt: Date
-    var updatedAt: Date
+    // timestamps with defaults for CloudKit compatibility
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
 
     // Local stable identifier (avoid using 'id' which conflicts with SwiftData synthesized id)
-    var uuid: String
+    var uuid: String = UUID().uuidString
     // Conform to Identifiable for use with SwiftUI APIs that require it.
     var id: String { uuid }
 
     // Personal Information (human)
-    var personalFamilyName: String
-    var personalGivenName: String
-    var personalNickName: String
-    var personalGender: String
-    var personalBirthdate: Date?
-    var personalSocialSecurityNumber: String
-    var personalAddress: String
-    var personalHealthInsurance: String
-    var personalHealthInsuranceNumber: String
-    var personalEmployer: String
+    var personalFamilyName: String = ""
+    var personalGivenName: String = ""
+    var personalNickName: String = ""
+    var personalGender: String = ""
+    var personalBirthdate: Date? = nil
+    var personalSocialSecurityNumber: String = ""
+    var personalAddress: String = ""
+    var personalHealthInsurance: String = ""
+    var personalHealthInsuranceNumber: String = ""
+    var personalEmployer: String = ""
 
     // Pet-related fields
-    var isPet: Bool
-    var personalName: String
-    var personalAnimalID: String
-    var ownerName: String
-    var ownerPhone: String
-    var ownerEmail: String
+    var isPet: Bool = false
+    var personalName: String = ""
+    var personalAnimalID: String = ""
+    var ownerName: String = ""
+    var ownerPhone: String = ""
+    var ownerEmail: String = ""
 
     // Pet veterinarian details
-    var vetClinicName: String
-    var vetContactName: String
-    var vetPhone: String
-    var vetEmail: String
-    var vetAddress: String
-    var vetNote: String
+    var vetClinicName: String = ""
+    var vetContactName: String = ""
+    var vetPhone: String = ""
+    var vetEmail: String = ""
+    var vetAddress: String = ""
+    var vetNote: String = ""
 
     // Legacy single emergency contact fields (kept for backward compatibility)
-    var emergencyName: String
-    var emergencyNumber: String
-    var emergencyEmail: String
+    var emergencyName: String = ""
+    var emergencyNumber: String = ""
+    var emergencyEmail: String = ""
 
-    // Relationships (existing ones)
+    // Relationships (use optional backing storage for CloudKit compatibility)
     @Relationship(deleteRule: .cascade, inverse: \BloodEntry.record)
-    var blood: [BloodEntry] = []
+    private var _blood: [BloodEntry]? = nil
+    var blood: [BloodEntry] {
+        get { _blood ?? [] }
+        set { _blood = newValue }
+    }
 
     @Relationship(deleteRule: .cascade, inverse: \DrugEntry.record)
-    var drugs: [DrugEntry] = []
+    private var _drugs: [DrugEntry]? = nil
+    var drugs: [DrugEntry] {
+        get { _drugs ?? [] }
+        set { _drugs = newValue }
+    }
 
     @Relationship(deleteRule: .cascade, inverse: \VaccinationEntry.record)
-    var vaccinations: [VaccinationEntry] = []
+    private var _vaccinations: [VaccinationEntry]? = nil
+    var vaccinations: [VaccinationEntry] {
+        get { _vaccinations ?? [] }
+        set { _vaccinations = newValue }
+    }
 
     @Relationship(deleteRule: .cascade, inverse: \AllergyEntry.record)
-    var allergy: [AllergyEntry] = []
+    private var _allergy: [AllergyEntry]? = nil
+    var allergy: [AllergyEntry] {
+        get { _allergy ?? [] }
+        set { _allergy = newValue }
+    }
 
     @Relationship(deleteRule: .cascade, inverse: \IllnessEntry.record)
-    var illness: [IllnessEntry] = []
+    private var _illness: [IllnessEntry]? = nil
+    var illness: [IllnessEntry] {
+        get { _illness ?? [] }
+        set { _illness = newValue }
+    }
 
     @Relationship(deleteRule: .cascade, inverse: \RiskEntry.record)
-    var risks: [RiskEntry] = []
+    private var _risks: [RiskEntry]? = nil
+    var risks: [RiskEntry] {
+        get { _risks ?? [] }
+        set { _risks = newValue }
+    }
 
     @Relationship(deleteRule: .cascade, inverse: \MedicalHistoryEntry.record)
-    var medicalhistory: [MedicalHistoryEntry] = []
+    private var _medicalhistory: [MedicalHistoryEntry]? = nil
+    var medicalhistory: [MedicalHistoryEntry] {
+        get { _medicalhistory ?? [] }
+        set { _medicalhistory = newValue }
+    }
 
     @Relationship(deleteRule: .cascade, inverse: \MedicalDocumentEntry.record)
-    var medicaldocument: [MedicalDocumentEntry] = []
+    private var _medicaldocument: [MedicalDocumentEntry]? = nil
+    var medicaldocument: [MedicalDocumentEntry] {
+        get { _medicaldocument ?? [] }
+        set { _medicaldocument = newValue }
+    }
 
     @Relationship(deleteRule: .cascade, inverse: \WeightEntry.record)
-    var weights: [WeightEntry] = []
+    private var _weights: [WeightEntry]? = nil
+    var weights: [WeightEntry] {
+        get { _weights ?? [] }
+        set { _weights = newValue }
+    }
 
     @Relationship(deleteRule: .cascade, inverse: \EmergencyContact.record)
-    var emergencyContacts: [EmergencyContact] = []
+    private var _emergencyContacts: [EmergencyContact]? = nil
+    var emergencyContacts: [EmergencyContact] {
+        get { _emergencyContacts ?? [] }
+        set { _emergencyContacts = newValue }
+    }
 
     @Relationship(deleteRule: .cascade, inverse: \HumanDoctorEntry.record)
-    var humanDoctors: [HumanDoctorEntry] = []
+    private var _humanDoctors: [HumanDoctorEntry]? = nil
+    var humanDoctors: [HumanDoctorEntry] {
+        get { _humanDoctors ?? [] }
+        set { _humanDoctors = newValue }
+    }
 
     @Relationship(deleteRule: .cascade, inverse: \PetYearlyCostEntry.record)
-    var petYearlyCosts: [PetYearlyCostEntry] = []
+    private var _petYearlyCosts: [PetYearlyCostEntry]? = nil
+    var petYearlyCosts: [PetYearlyCostEntry] {
+        get { _petYearlyCosts ?? [] }
+        set { _petYearlyCosts = newValue }
+    }
 
     // CloudKit integration flags (opt-in per-record)
     var isCloudEnabled: Bool = false
@@ -131,16 +180,12 @@ final class MedicalRecord {
     /// Centralized rule for what the UI should show.
     /// Priority: Shared > iCloud > Local.
     var locationStatus: RecordLocationStatus {
-        // Shared state should win over per-record cloud toggles: a record that is shared
-        // should show as .shared even if the user-level `isCloudEnabled` toggle is false.
-        if isSharingEnabled || cloudShareRecordName != nil {
-            return .shared
-        }
-
         if isCloudEnabled {
+            if isSharingEnabled || cloudShareRecordName != nil {
+                return .shared
+            }
             return .iCloud
         }
-
         return .local
     }
 
@@ -156,18 +201,18 @@ final class MedicalRecord {
             let family = personalFamilyName.trimmingCharacters(in: .whitespacesAndNewlines)
             let given = personalGivenName.trimmingCharacters(in: .whitespacesAndNewlines)
             let name = personalNickName.trimmingCharacters(in: .whitespacesAndNewlines)
-            
+
             // Build the display name with " - " separator
             let parts = [family, given, name].filter { !$0.isEmpty }
-            
+
             if parts.isEmpty {
                 return "Person"
             }
-            
+
             return parts.joined(separator: " - ")
         }
     }
-    
+
     /// Sort key for ordering records
     /// Humans first, then Pets, both alphabetically sorted by displayName
     /// Uses "0-" prefix for humans and "1-" prefix for pets to ensure correct ordering

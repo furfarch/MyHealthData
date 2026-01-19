@@ -3,20 +3,20 @@ import SwiftData
 
 @Model
 final class PetYearlyCostEntry {
-    var createdAt: Date
-    var updatedAt: Date
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
 
     // Local stable identifier
-    var uuid: String
+    var uuid: String = UUID().uuidString
     var id: String { uuid }
 
-    var year: Int
-    var category: String
-    var amount: Double
-    var note: String
+    var year: Int = Calendar.current.component(.year, from: Date())
+    var category: String = ""
+    var amount: Double = 0
+    var note: String = ""
 
     // Inverse is declared on MedicalRecord.petYearlyCosts.
-    var record: MedicalRecord?
+    var record: MedicalRecord? = nil
 
     init(
         uuid: String = UUID().uuidString,

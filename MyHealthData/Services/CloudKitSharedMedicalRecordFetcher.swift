@@ -42,7 +42,7 @@ final class CloudKitSharedMedicalRecordFetcher {
                     }
                 }
             }
-            database.add(op)
+            self.database.add(op)
         }
     }
 
@@ -69,16 +69,16 @@ final class CloudKitSharedMedicalRecordFetcher {
             record.createdAt = ckRecord["createdAt"] as? Date ?? record.createdAt
             record.updatedAt = cloudUpdatedAt
 
-            record.personalFamilyName = ckRecord["personalFamilyName"] as? String ?? ""
-            record.personalGivenName = ckRecord["personalGivenName"] as? String ?? ""
-            record.personalNickName = ckRecord["personalNickName"] as? String ?? ""
-            record.personalGender = ckRecord["personalGender"] as? String ?? ""
-            record.personalBirthdate = ckRecord["personalBirthdate"] as? Date
-            record.personalSocialSecurityNumber = ckRecord["personalSocialSecurityNumber"] as? String ?? ""
-            record.personalAddress = ckRecord["personalAddress"] as? String ?? ""
-            record.personalHealthInsurance = ckRecord["personalHealthInsurance"] as? String ?? ""
-            record.personalHealthInsuranceNumber = ckRecord["personalHealthInsuranceNumber"] as? String ?? ""
-            record.personalEmployer = ckRecord["personalEmployer"] as? String ?? ""
+            record.personalFamilyName = ckRecord["personalFamilyName"] as? String ?? record.personalFamilyName
+            record.personalGivenName = ckRecord["personalGivenName"] as? String ?? record.personalGivenName
+            record.personalNickName = ckRecord["personalNickName"] as? String ?? record.personalNickName
+            record.personalGender = ckRecord["personalGender"] as? String ?? record.personalGender
+            record.personalBirthdate = ckRecord["personalBirthdate"] as? Date ?? record.personalBirthdate
+            record.personalSocialSecurityNumber = ckRecord["personalSocialSecurityNumber"] as? String ?? record.personalSocialSecurityNumber
+            record.personalAddress = ckRecord["personalAddress"] as? String ?? record.personalAddress
+            record.personalHealthInsurance = ckRecord["personalHealthInsurance"] as? String ?? record.personalHealthInsurance
+            record.personalHealthInsuranceNumber = ckRecord["personalHealthInsuranceNumber"] as? String ?? record.personalHealthInsuranceNumber
+            record.personalEmployer = ckRecord["personalEmployer"] as? String ?? record.personalEmployer
 
             if let boolVal = ckRecord["isPet"] as? Bool {
                 record.isPet = boolVal
@@ -86,22 +86,30 @@ final class CloudKitSharedMedicalRecordFetcher {
                 record.isPet = num.boolValue
             }
 
-            record.personalName = ckRecord["personalName"] as? String ?? ""
-            record.personalAnimalID = ckRecord["personalAnimalID"] as? String ?? ""
-            record.ownerName = ckRecord["ownerName"] as? String ?? ""
-            record.ownerPhone = ckRecord["ownerPhone"] as? String ?? ""
-            record.ownerEmail = ckRecord["ownerEmail"] as? String ?? ""
-            record.emergencyName = ckRecord["emergencyName"] as? String ?? ""
-            record.emergencyNumber = ckRecord["emergencyNumber"] as? String ?? ""
-            record.emergencyEmail = ckRecord["emergencyEmail"] as? String ?? ""
+            record.personalName = ckRecord["personalName"] as? String ?? record.personalName
+            record.personalAnimalID = ckRecord["personalAnimalID"] as? String ?? record.personalAnimalID
+            record.ownerName = ckRecord["ownerName"] as? String ?? record.ownerName
+            record.ownerPhone = ckRecord["ownerPhone"] as? String ?? record.ownerPhone
+            record.ownerEmail = ckRecord["ownerEmail"] as? String ?? record.ownerEmail
+            record.emergencyName = ckRecord["emergencyName"] as? String ?? record.emergencyName
+            record.emergencyNumber = ckRecord["emergencyNumber"] as? String ?? record.emergencyNumber
+            record.emergencyEmail = ckRecord["emergencyEmail"] as? String ?? record.emergencyEmail
 
-            // Respect global iCloud toggle. Importing should not auto-enable cloud for the user.
-            let cloudEnabled = UserDefaults.standard.bool(forKey: "cloudEnabled")
-            record.isCloudEnabled = cloudEnabled
+            // For shared records, mark them as cloud-enabled and as shared so they appear in the UI.
+            record.isCloudEnabled = true
+            record.isSharingEnabled = true
             record.cloudRecordName = ckRecord.recordID.recordName
+
+            // If the CKRecord has a share reference, capture it; otherwise it may be populated elsewhere.
+            if let shareRef = ckRecord.share {
+                record.cloudShareRecordName = shareRef.recordID.recordName
+            }
 
             if existing == nil {
                 context.insert(record)
+                ShareDebugStore.shared.appendLog("CloudKitSharedMedicalRecordFetcher: inserted shared record \(uuid)")
+            } else {
+                ShareDebugStore.shared.appendLog("CloudKitSharedMedicalRecordFetcher: updated shared record \(uuid)")
             }
         }
 

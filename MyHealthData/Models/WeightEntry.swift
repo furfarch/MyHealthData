@@ -3,11 +3,11 @@ import SwiftData
 
 @Model
 final class WeightEntry {
-    var createdAt: Date
-    var updatedAt: Date
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
 
     // Local stable identifier
-    var uuid: String
+    var uuid: String = UUID().uuidString
     var id: String { uuid }
 
     var date: Date? = nil
