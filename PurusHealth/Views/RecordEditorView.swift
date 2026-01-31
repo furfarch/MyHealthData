@@ -64,7 +64,7 @@ struct RecordEditorView: View {
                     }
                 }
                 .disabled(isSharedReadOnly)
-                .help(isWaitingForShareAttachment ? "Waiting for share acceptance" : nil)
+                .help(isWaitingForShareAttachment ? "Waiting for share acceptance" : "")
             }
 
             #if os(iOS) || targetEnvironment(macCatalyst)
@@ -74,7 +74,7 @@ struct RecordEditorView: View {
                         showCloudSettings = true
                     }
                     .disabled(isSharedReadOnly)
-                    .help(isWaitingForShareAttachment ? "Waiting for share acceptance" : nil)
+                    .help(isWaitingForShareAttachment ? "Waiting for share acceptance" : "")
                 }
             }
             #else
@@ -84,7 +84,7 @@ struct RecordEditorView: View {
                         showCloudSettings = true
                     }
                     .disabled(isSharedReadOnly)
-                    .help(isWaitingForShareAttachment ? "Waiting for share acceptance" : nil)
+                    .help(isWaitingForShareAttachment ? "Waiting for share acceptance" : "")
                 }
             }
             #endif
