@@ -6,6 +6,10 @@ import SwiftData
 import UIKit
 #endif
 
+#if os(iOS) || targetEnvironment(macCatalyst)
+private enum SharePermissionChoice: Hashable { case readWrite, readOnly }
+#endif
+
 struct CloudShareSheet: View {
     let record: MedicalRecord
 
@@ -18,6 +22,7 @@ struct CloudShareSheet: View {
     #if os(iOS) || targetEnvironment(macCatalyst)
     @State private var showShareSheet = false
     @State private var shareController: UICloudSharingController?
+    @State private var selectedPermissionChoice: SharePermissionChoice = .readWrite
     #else
     @State private var shareURL: URL?
     #endif
@@ -42,6 +47,16 @@ struct CloudShareSheet: View {
                     } label: {
                         if isBusy { ProgressView() } else { Text("Share Record") }
                     }
+                    Picker("Permission", selection: $selectedPermissionChoice) {
+                        Text("Read/Write").tag(SharePermissionChoice.readWrite)
+                        Text("Read Only").tag(SharePermissionChoice.readOnly)
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityLabel("Sharing Permission")
+                    Text("As the owner, you can invite people and change their permissions (read-only or read-write).")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .background(
                     ShareSheetPresenter(controller: $shareController, isPresented: $showShareSheet)
@@ -85,7 +100,8 @@ struct CloudShareSheet: View {
         isBusy = true
         defer { isBusy = false }
         do {
-            let controller = try await CloudSyncService.shared.makeCloudSharingController(for: record) { result in
+            let permissionOptions: UICloudSharingController.PermissionOptions = (selectedPermissionChoice == .readWrite) ? .allowReadWrite : .allowReadOnly
+            let controller = try await CloudSyncService.shared.makeCloudSharingController(for: record, preferredPermissions: permissionOptions) { result in
                 DispatchQueue.main.async {
                     self.showShareSheet = false
                     switch result {

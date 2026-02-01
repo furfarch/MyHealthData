@@ -46,6 +46,7 @@ final class CloudKitShareParticipantsService {
 
         let lines: [String] = participants.map { p in
             let nameOrEmail: String = {
+                if let name = p.userIdentity.nameComponents?.formatted(.name(style: .medium)), !name.isEmpty { return name }
                 if let email = p.userIdentity.lookupInfo?.emailAddress, !email.isEmpty { return email }
                 if let phone = p.userIdentity.lookupInfo?.phoneNumber, !phone.isEmpty { return phone }
                 if let recordName = p.userIdentity.userRecordID?.recordName { return recordName }

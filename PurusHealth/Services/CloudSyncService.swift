@@ -116,6 +116,9 @@ final class CloudSyncService {
     func syncIfNeeded(record: MedicalRecord) async throws {
         guard record.isCloudEnabled else { return }
 
+        // Do not resurrect locally deleted records
+        if record.isMarkedForDeletion == true { return }
+
         // Check iCloud account availability
         let status = try await accountStatus()
         guard status == .available else {
@@ -224,7 +227,14 @@ final class CloudSyncService {
         do {
             let saved = try await sharedDB.save(sharedCKRecord)
             ShareDebugStore.shared.appendLog("syncSharedRecordIfNeeded: saved shared record id=\(saved.recordID.recordName) zone=\(saved.recordID.zoneID.zoneName) for local uuid=\(record.uuid)")
+            
+            // Update participants summary locally
+            await CloudKitShareParticipantsService.shared.refreshParticipantsSummary(for: record)
         } catch {
+            if let ck = error as? CKError, ck.code == .permissionFailure {
+                ShareDebugStore.shared.appendLog("syncSharedRecordIfNeeded: permission failure (read-only) for uuid=\(record.uuid)")
+                throw NSError(domain: "CloudSyncService", code: ck.code.rawValue, userInfo: [NSLocalizedDescriptionKey: "You don't have permission to edit this shared record."])
+            }
             throw enrichCloudKitError(error)
         }
     }
@@ -336,10 +346,9 @@ final class CloudSyncService {
 
         // Create new share
         let share = CKShare(rootRecord: root)
-        share[CKShare.SystemFieldKey.title] = "Shared Medical Record" as CKRecordValue
-        // Set restrictive permission - only explicitly invited participants can access
-        // This is required for the share URL to be properly generated
+        // Configure default permissions; only invited users, allow read-write by default via UI controller
         share.publicPermission = .none
+        share[CKShare.SystemFieldKey.title] = (root["personalName"] as? NSString) ?? "Shared Medical Record"
 
         do {
             // Use CKModifyRecordsOperation with .allKeys save policy
@@ -500,7 +509,7 @@ final class CloudSyncService {
     private var activeSharingDelegate: CloudSharingDelegate? // retain delegate while sheet is presented
     private var sharingTimeoutTask: Task<Void, Never>? = nil
 
-    func makeCloudSharingController(for record: MedicalRecord, onComplete: @escaping (Result<URL?, Error>) -> Void) async throws -> UICloudSharingController {
+    func makeCloudSharingController(for record: MedicalRecord, preferredPermissions: UICloudSharingController.PermissionOptions? = nil, onComplete: @escaping (Result<URL?, Error>) -> Void) async throws -> UICloudSharingController {
         let container = CKContainer(identifier: containerIdentifier)
 
         // Check account status early
@@ -546,7 +555,11 @@ final class CloudSyncService {
 
         let controller = UICloudSharingController(share: savedShare, container: container)
         controller.delegate = delegate
-        controller.availablePermissions = [.allowReadWrite, .allowPrivate]
+        if let preferred = preferredPermissions {
+            controller.availablePermissions = [preferred, .allowPrivate]
+        } else {
+            controller.availablePermissions = [.allowReadWrite, .allowReadOnly, .allowPrivate]
+        }
         controller.modalPresentationStyle = .formSheet
         controller.title = "Shared Medical Record"
         
@@ -589,6 +602,11 @@ final class CloudSyncService {
         do {
             let deleted = try await database.deleteRecord(withID: ckID)
             ShareDebugStore.shared.appendLog("[CloudSyncService] Deleted CloudKit root id=\(deleted.recordName) zone=\(shareZoneName) for local uuid=\(record.uuid)")
+
+            // Mark locally so future syncs don't recreate it
+            record.isCloudEnabled = false
+            record.isSharingEnabled = false
+            record.updatedAt = Date()
             return
         } catch {
             ShareDebugStore.shared.appendLog("[CloudSyncService] Direct zoned delete failed id=\(ckID.recordName) zone=\(shareZoneName): \(error)")
@@ -631,6 +649,11 @@ final class CloudSyncService {
         } else {
             ShareDebugStore.shared.appendLog("[CloudSyncService] No CloudKit record found for uuid=\(record.uuid) in zone=\(shareZoneName)")
         }
+
+        // Ensure local cloud identifiers are cleared after deletion
+        record.cloudRecordName = nil
+        record.cloudShareRecordName = nil
+        record.shareParticipantsSummary = ""
     }
 
     // MARK: - Mapping
@@ -670,6 +693,12 @@ final class CloudSyncService {
 
         // Simple versioning to allow future schema changes
         ckRecord["schemaVersion"] = 1 as NSNumber
+
+        // Tombstone for deletions and flags for sharing
+        // Removed isDeleted field due to production schema issues
+        // ckRecord["isDeleted"] = record.isDeleted as NSNumber
+        // Mirror isSharingEnabled as Int64 (0/1) to match CloudKit Production schema
+        ckRecord["isSharingEnabled"] = NSNumber(value: record.isSharingEnabled ? Int64(1) : Int64(0))
     }
 
     private func enrichCloudKitError(_ error: Error) -> Error {

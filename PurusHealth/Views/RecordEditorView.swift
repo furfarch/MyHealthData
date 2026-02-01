@@ -13,21 +13,15 @@ struct RecordEditorView: View {
     @State private var showCloudSettings: Bool = false
 
     // MARK: - Permissions
+    @State private var effectivePermission: CloudKitSharePermissionService.EffectivePermission = .unknown
+
     private var isSharedReadOnly: Bool {
-        if let shareName = record.cloudShareRecordName, !shareName.isEmpty {
-            // Recipients are read-only by default; owner can edit.
-            // For precise permissions, extend to fetch CKShare and inspect local participant permission.
-            return true
-        }
-        return false
+        effectivePermission == .readOnly
     }
-    
+
     private var isWaitingForShareAttachment: Bool {
-        // If it's shared, but this device hasn't attached the shared zone yet, keep UI in read-only and show a hint.
-        // Without explicit zone discovery state, we reuse the same heuristic as read-only for visibility.
-        if let shareName = record.cloudShareRecordName, !shareName.isEmpty {
-            return true
-        }
+        // Treat unknown permission with a share as waiting state
+        if let shareName = record.cloudShareRecordName, !shareName.isEmpty, effectivePermission == .unknown { return true }
         return false
     }
 
@@ -54,6 +48,8 @@ struct RecordEditorView: View {
         #if os(iOS) || targetEnvironment(macCatalyst)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .task { await refreshSharePermission() }
+        .onChange(of: record.cloudShareRecordName) { _, _ in Task { await refreshSharePermission() } }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button(isEditing ? "Done" : "Edit") {
@@ -70,24 +66,54 @@ struct RecordEditorView: View {
             #if os(iOS) || targetEnvironment(macCatalyst)
             ToolbarItem(placement: .navigationBarLeading) {
                 if isEditing {
-                    Button("Cloud & Sharing") {
-                        showCloudSettings = true
+                    VStack(alignment: .leading, spacing: 4) {
+                        Button("Cloud & Sharing") {
+                            showCloudSettings = true
+                        }
+                        .disabled(isSharedReadOnly)
+                        .help(isWaitingForShareAttachment ? "Waiting for share acceptance" : "")
+
+                        if effectivePermission == .readWrite {
+                            Button("Manage Sharing") {
+                                showCloudSettings = true
+                            }
+                        }
                     }
-                    .disabled(isSharedReadOnly)
-                    .help(isWaitingForShareAttachment ? "Waiting for share acceptance" : "")
                 }
             }
             #else
             ToolbarItem(placement: .automatic) {
                 if isEditing {
-                    Button("Cloud & Sharing") {
-                        showCloudSettings = true
+                    VStack(alignment: .leading, spacing: 4) {
+                        Button("Cloud & Sharing") {
+                            showCloudSettings = true
+                        }
+                        .disabled(isSharedReadOnly)
+                        .help(isWaitingForShareAttachment ? "Waiting for share acceptance" : "")
+
+                        if effectivePermission == .readWrite {
+                            Button("Manage Sharing") {
+                                showCloudSettings = true
+                            }
+                        }
                     }
-                    .disabled(isSharedReadOnly)
-                    .help(isWaitingForShareAttachment ? "Waiting for share acceptance" : "")
                 }
             }
             #endif
+        }
+        .toolbar {
+            ToolbarItem(placement: .status) {
+                if isSharedReadOnly {
+                    Text("READ ONLY")
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.red.opacity(0.15))
+                        .foregroundStyle(.red)
+                        .clipShape(Capsule())
+                        .accessibilityLabel("Read-only shared record")
+                }
+            }
         }
         .alert(
             "Save Error",
@@ -501,6 +527,12 @@ struct RecordEditorView: View {
     private func saveAndFinishEditing() {
         touchAndSave()
         isEditing = false
+    }
+
+    @MainActor
+    private func refreshSharePermission() async {
+        let perm = await CloudKitSharePermissionService.shared.permission(for: record)
+        effectivePermission = perm
     }
 }
 

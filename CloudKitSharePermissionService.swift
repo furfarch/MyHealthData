@@ -32,25 +32,25 @@ final class CloudKitSharePermissionService {
             // Determine this device's participant permission.
             // Find the participant matching the current user identity if available.
             // If not resolvable, fall back to the first accepted participant.
-            let effective: EffectivePermission = {
-                // Try to find local user participant first
-                if let myRecordID = try? await container.userRecordID() {
-                    if let mine = share.participants.first(where: { $0.userIdentity.userRecordID == myRecordID }) {
-                        switch mine.permission {
-                        case .readOnly: return .readOnly
-                        case .readWrite: return .readWrite
-                        default: break
-                        }
+            var effective: EffectivePermission = .unknown
+
+            if let myRecordID = try? await container.userRecordID() {
+                if let mine = share.participants.first(where: { $0.userIdentity.userRecordID == myRecordID }) {
+                    switch mine.permission {
+                    case .readOnly: effective = .readOnly
+                    case .readWrite: effective = .readWrite
+                    default: break
                     }
                 }
-                // Fallback heuristic: if any participant has readWrite and is accepted, assume write
+            }
+
+            if effective == .unknown {
                 if share.participants.contains(where: { $0.permission == .readWrite && $0.acceptanceStatus == .accepted }) {
-                    return .readWrite
+                    effective = .readWrite
+                } else if !share.participants.isEmpty {
+                    effective = .readOnly
                 }
-                // Otherwise, treat as read-only if any participant exists
-                if !share.participants.isEmpty { return .readOnly }
-                return .unknown
-            }()
+            }
 
             return effective
         } catch {

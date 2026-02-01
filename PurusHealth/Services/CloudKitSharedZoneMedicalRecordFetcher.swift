@@ -150,10 +150,14 @@ final class CloudKitSharedZoneMedicalRecordFetcher {
             record.emergencyNumber = ckRecord["emergencyNumber"] as? String ?? ""
             record.emergencyEmail = ckRecord["emergencyEmail"] as? String ?? ""
 
+            // Read isSharingEnabled mirrored as Int64 (0/1) from CloudKit if present
+            if let num = ckRecord["isSharingEnabled"] as? NSNumber {
+                record.isSharingEnabled = (num.int64Value != 0)
+            }
+
             // Shared records should always be marked as shared and cloud-enabled
             // since they exist in CloudKit (even if user hasn't enabled global cloud sync).
             record.isCloudEnabled = true
-            record.isSharingEnabled = true
             record.cloudRecordName = ckRecord.recordID.recordName
 
             if let shareRef = ckRecord.share {

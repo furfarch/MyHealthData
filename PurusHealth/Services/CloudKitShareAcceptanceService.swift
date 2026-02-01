@@ -19,6 +19,8 @@ final class CloudKitShareAcceptanceService {
         do {
             try await acceptShareMetadata(metadata)
 
+            NotificationCenter.default.post(name: NotificationNames.didChangeSharedRecords, object: nil)
+
             let sharedDB = container.sharedCloudDatabase
 
             // Fetch just the shared root record (so it appears immediately).
@@ -39,6 +41,8 @@ final class CloudKitShareAcceptanceService {
                 share: fetchedShare,
                 modelContext: modelContext
             )
+            // Refresh participants summary for imported records (best-effort)
+            NotificationCenter.default.post(name: NotificationNames.didChangeSharedRecords, object: nil)
 
             // Force a full shared import across zones to ensure visibility immediately after acceptance
             do {
@@ -79,6 +83,8 @@ final class CloudKitShareAcceptanceService {
             let metadata = try await fetchShareMetadata(for: url)
             try await acceptShareMetadata(metadata)
 
+            NotificationCenter.default.post(name: NotificationNames.didChangeSharedRecords, object: nil)
+
             let sharedDB = container.sharedCloudDatabase
 
             // Fetch just the shared root record (so it appears immediately).
@@ -99,6 +105,8 @@ final class CloudKitShareAcceptanceService {
                 share: fetchedShare,
                 modelContext: modelContext
             )
+            // Refresh participants summary for imported records (best-effort)
+            NotificationCenter.default.post(name: NotificationNames.didChangeSharedRecords, object: nil)
 
             // Force a full shared import across zones to ensure visibility immediately after acceptance
             do {

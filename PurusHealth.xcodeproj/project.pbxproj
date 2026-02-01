@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A214620E2F2FD0EB00BB44C4 /* CloudKitSharePermissionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A214620D2F2FD0EB00BB44C4 /* CloudKitSharePermissionService.swift */; };
 		A28CCB112F2F68E3006F36DD /* SharedImportSuppression.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28CCB102F2F68E3006F36DD /* SharedImportSuppression.swift */; };
 		A28CCB132F2F729A006F36DD /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28CCB122F2F729A006F36DD /* DiagnosticsView.swift */; };
 /* End PBXBuildFile section */
@@ -29,6 +30,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A214620D2F2FD0EB00BB44C4 /* CloudKitSharePermissionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitSharePermissionService.swift; sourceTree = "<group>"; };
 		A2786C512F0C6DB4007A8596 /* PurusHealth.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PurusHealth.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2786C622F0C6DB5007A8596 /* PurusHealthTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PurusHealthTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2786C6C2F0C6DB5007A8596 /* PurusHealthUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PurusHealthUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -101,6 +103,7 @@
 				A2786C522F0C6DB4007A8596 /* Products */,
 				A28CCB102F2F68E3006F36DD /* SharedImportSuppression.swift */,
 				A28CCB122F2F729A006F36DD /* DiagnosticsView.swift */,
+				A214620D2F2FD0EB00BB44C4 /* CloudKitSharePermissionService.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -259,6 +262,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A28CCB112F2F68E3006F36DD /* SharedImportSuppression.swift in Sources */,
+				A214620E2F2FD0EB00BB44C4 /* CloudKitSharePermissionService.swift in Sources */,
 				A28CCB132F2F729A006F36DD /* DiagnosticsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

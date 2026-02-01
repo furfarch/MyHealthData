@@ -147,6 +147,13 @@ final class MedicalRecord {
     /// For now this may remain empty; we'll populate it later when we add participant fetching.
     var shareParticipantsSummary: String = ""
 
+    /// Optional flag mirrored to CloudKit to indicate deletion state.
+    /// This is separate from `isMarkedForDeletion`, which is a local-only tombstone.
+    var isDeleted: Bool = false
+
+    /// Local tombstone to indicate this record was deleted locally and should not be resurrected by cloud imports.
+    var isMarkedForDeletion: Bool = false
+
     enum RecordLocationStatus: Equatable {
         case local
         case iCloud
@@ -270,7 +277,9 @@ final class MedicalRecord {
         cloudRecordName: String? = nil,
         cloudShareRecordName: String? = nil,
         isSharingEnabled: Bool = false,
-        shareParticipantsSummary: String = ""
+        shareParticipantsSummary: String = "",
+        isMarkedForDeletion: Bool = false,
+        isDeleted: Bool = false
     ) {
         self.uuid = uuid
         self.createdAt = createdAt
@@ -324,5 +333,7 @@ final class MedicalRecord {
         self.cloudShareRecordName = cloudShareRecordName
         self.isSharingEnabled = isSharingEnabled
         self.shareParticipantsSummary = shareParticipantsSummary
+        self.isDeleted = isDeleted
+        self.isMarkedForDeletion = isMarkedForDeletion
     }
 }

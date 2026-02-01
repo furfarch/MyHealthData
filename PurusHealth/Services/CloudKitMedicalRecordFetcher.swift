@@ -304,6 +304,11 @@ class CloudKitMedicalRecordFetcher: ObservableObject {
             record.emergencyNumber = ckRecord["emergencyNumber"] as? String ?? ""
             record.emergencyEmail = ckRecord["emergencyEmail"] as? String ?? ""
 
+            // Read isSharingEnabled mirrored as Int64 (0/1) from CloudKit if present
+            if let num = ckRecord["isSharingEnabled"] as? NSNumber {
+                record.isSharingEnabled = (num.int64Value != 0)
+            }
+
             // Respect global iCloud toggle. Importing should not auto-enable cloud for the user.
             let cloudEnabled = UserDefaults.standard.bool(forKey: "cloudEnabled")
             record.isCloudEnabled = cloudEnabled

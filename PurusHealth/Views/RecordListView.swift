@@ -144,6 +144,9 @@ struct RecordListView: View {
                     do {
                         try await CloudSyncService.shared.deleteSyncRecord(forLocalRecord: record)
                         SharedImportSuppression.suppress(record.uuid)
+                        record.isMarkedForDeletion = true
+                        record.updatedAt = Date()
+                        try? modelContext.save()
                     } catch {
                         // Surface error but continue with local deletion to keep UI responsive
                         saveErrorMessage = "Cloud delete failed: \(error.localizedDescription)"
